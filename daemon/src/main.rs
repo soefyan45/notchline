@@ -54,6 +54,8 @@ struct Config {
 struct PillConfig {
     /// Keep a small notch visible when there is no notification
     idle_visible: bool,
+    /// Hide the idle notch until the pointer reaches the top center edge
+    reveal_on_hover: bool,
     idle_width: u32,
     idle_height: u32,
     expanded_width: u32,
@@ -79,6 +81,7 @@ impl Default for PillConfig {
     fn default() -> Self {
         Self {
             idle_visible: true,
+            reveal_on_hover: true,
             idle_width: 160,
             idle_height: 30,
             expanded_width: 420,

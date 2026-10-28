@@ -56,6 +56,8 @@ notchline reload         # re-read config.toml and apply it
 
 System notifications (`notify-send`, apps) are shown in the notch too.
 Hover the pill to keep it open; click it to open the app that sent it.
+While idle the notch stays hidden; push the pointer to the top center edge
+to reveal it (set `reveal_on_hover = false` to keep it always visible).
 
 ## Configuration
 

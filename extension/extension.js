@@ -45,6 +45,7 @@ const NotchlineProxy = Gio.DBusProxy.makeProxyWrapper(NotchlineIface);
 const DEFAULT_CONFIG = {
     pill: {
         idle_visible: true,
+        reveal_on_hover: true,
         idle_width: 160,
         idle_height: 30,
         expanded_width: 420,
@@ -64,6 +65,10 @@ const DEFAULT_CONFIG = {
 
 const HOVER_RECHECK_MS = 500;
 const CONTENT_FADE_MS = 120;
+// Height of the invisible strip on the top edge that reveals the idle notch
+const HOT_ZONE_HEIGHT = 2;
+// Grace period before hiding, so moving from the strip onto the notch doesn't flicker
+const REVEAL_HIDE_DELAY_MS = 300;
 
 function mergeConfig(json) {
     let parsed = {};
@@ -88,12 +93,19 @@ class Pill {
     constructor(config, onClick) {
         this._config = config;
         this.expanded = false;
+        this._collapsing = false;
+        this._revealed = false;
+        this._revealTimeoutId = 0;
+
+        this._hotZone = new St.Widget({reactive: true, track_hover: true});
+        this._hotZone.connect('notify::hover', () => this._updateReveal());
 
         this.actor = new St.BoxLayout({
             style_class: 'notchline-pill',
             reactive: true,
             track_hover: true,
         });
+        this.actor.connect('notify::hover', () => this._updateReveal());
 
         this._content = new St.BoxLayout({
             style_class: 'notchline-content',
@@ -126,6 +138,8 @@ class Pill {
             return Clutter.EVENT_STOP;
         });
 
+        // Added first so the notch stays above it
+        Main.layoutManager.addTopChrome(this._hotZone, {trackFullscreen: true});
         Main.layoutManager.addTopChrome(this.actor);
         Main.layoutManager.connectObject('monitors-changed', () => this._move(this.expanded, false), this);
         this._move(false, false);
@@ -137,6 +151,10 @@ class Pill {
 
     setConfig(config) {
         this._config = config;
+        if (!config.pill.reveal_on_hover) {
+            this._clearRevealTimeout();
+            this._revealed = false;
+        }
         this._move(this.expanded, false);
     }
 
@@ -165,9 +183,61 @@ class Pill {
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             onComplete: () => {
                 this.expanded = false;
-                this._move(false, true, onDone);
+                this._collapsing = true;
+                this._move(false, true, () => {
+                    this._collapsing = false;
+                    onDone?.();
+                    // Apply a reveal change that happened mid-collapse
+                    if (!this.expanded && this.actor.visible !== this._idleShown())
+                        this._move(false, true);
+                });
             },
         });
+    }
+
+    _idleShown() {
+        const p = this._config.pill;
+        return p.reveal_on_hover ? this._revealed : p.idle_visible;
+    }
+
+    _updateReveal() {
+        this._clearRevealTimeout();
+        if (!this._config.pill.reveal_on_hover)
+            return;
+
+        if (this._hotZone.hover || this.actor.hover) {
+            this._setRevealed(true);
+            return;
+        }
+        this._revealTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, REVEAL_HIDE_DELAY_MS, () => {
+            this._revealTimeoutId = 0;
+            this._setRevealed(false);
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _setRevealed(revealed) {
+        if (this._revealed === revealed)
+            return;
+        this._revealed = revealed;
+        // The expanded notch stays put; a running collapse picks this up when done
+        if (!this.expanded && !this._collapsing)
+            this._move(false, true);
+    }
+
+    _clearRevealTimeout() {
+        if (this._revealTimeoutId) {
+            GLib.source_remove(this._revealTimeoutId);
+            this._revealTimeoutId = 0;
+        }
+    }
+
+    _placeHotZone() {
+        const {x, width} = this._geometry(false);
+        const {scale_factor: scale} = St.ThemeContext.get_for_stage(global.stage);
+        this._hotZone.set_position(x, Main.layoutManager.primaryMonitor.y);
+        this._hotZone.set_size(width, HOT_ZONE_HEIGHT * scale);
+        this._hotZone.reactive = this._config.pill.reveal_on_hover;
     }
 
     _geometry(expanded) {
@@ -194,8 +264,9 @@ class Pill {
         this.actor.style = `background-color: ${hexToRgba(p.background, p.opacity)}; ` +
             `border-radius: ${Math.min(p.radius, height / 2)}px;`;
 
-        const visible = expanded || p.idle_visible;
+        const visible = expanded || this._idleShown();
         const geometry = this._geometry(expanded);
+        this._placeHotZone();
 
         if (!animate) {
             this.actor.remove_all_transitions();
@@ -208,7 +279,7 @@ class Pill {
             return;
         }
 
-        if (expanded && !this.actor.visible) {
+        if (visible && !this.actor.visible) {
             this.actor.opacity = 0;
             this.actor.show();
         }
@@ -231,9 +302,12 @@ class Pill {
     }
 
     destroy() {
+        this._clearRevealTimeout();
         Main.layoutManager.disconnectObject(this);
         Main.layoutManager.removeChrome(this.actor);
+        Main.layoutManager.removeChrome(this._hotZone);
         this.actor.destroy();
+        this._hotZone.destroy();
     }
 }
 

@@ -5,6 +5,9 @@
 [pill]
 # Keep a small notch visible when there is no notification
 idle_visible = true
+# Hide the idle notch and reveal it when the pointer hits the top center edge
+# (overrides idle_visible while idle)
+reveal_on_hover = true
 # Notch size while idle (logical pixels)
 idle_width = 160
 idle_height = 30
