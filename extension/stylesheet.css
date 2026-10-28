@@ -3,6 +3,10 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 
+.notchline-pill.notchline-full {
+  padding: 14px 16px;
+}
+
 .notchline-content {
   spacing: 12px;
 }

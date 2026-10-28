@@ -69,6 +69,15 @@ const CONTENT_FADE_MS = 120;
 const HOT_ZONE_HEIGHT = 2;
 // Grace period before hiding, so moving from the strip onto the notch doesn't flicker
 const REVEAL_HIDE_DELAY_MS = 300;
+// Pointer travel before a press on the notch turns into a pull
+const DRAG_THRESHOLD = 8;
+// Minimum pull distance between closed and open, for short notifications
+const MIN_PULL_RANGE = 80;
+// Fraction of the pull needed to open, and to stay open when pushed back up
+const PULL_OPEN_THRESHOLD = 0.3;
+const PULL_CLOSE_THRESHOLD = 0.7;
+// Tallest the pulled-open notch may get, as a fraction of the monitor height
+const FULL_MAX_HEIGHT = 0.6;
 
 function mergeConfig(json) {
     let parsed = {};
@@ -90,12 +99,19 @@ function hexToRgba(hex, alpha) {
 }
 
 class Pill {
-    constructor(config, onClick) {
+    constructor(config, {onClick, onPull}) {
         this._config = config;
+        this._onClick = onClick;
+        this._onPull = onPull;
         this.expanded = false;
+        this.open = false;
         this._collapsing = false;
         this._revealed = false;
         this._revealTimeoutId = 0;
+        this._shownMode = null;
+        this._drag = null;
+        this._grab = null;
+        this._stageEventId = 0;
 
         this._hotZone = new St.Widget({reactive: true, track_hover: true});
         this._hotZone.connect('notify::hover', () => this._updateReveal());
@@ -104,6 +120,7 @@ class Pill {
             style_class: 'notchline-pill',
             reactive: true,
             track_hover: true,
+            clip_to_allocation: true,
         });
         this.actor.connect('notify::hover', () => this._updateReveal());
 
@@ -124,8 +141,7 @@ class Pill {
         });
         this._title = new St.Label({style_class: 'notchline-title'});
         this._body = new St.Label({style_class: 'notchline-body'});
-        for (const label of [this._title, this._body])
-            label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+        this._setFullText(false);
 
         text.add_child(this._title);
         text.add_child(this._body);
@@ -133,20 +149,20 @@ class Pill {
         this._content.add_child(text);
         this.actor.add_child(this._content);
 
-        this.actor.connect('button-release-event', () => {
-            onClick();
-            return Clutter.EVENT_STOP;
-        });
+        this.actor.connect('button-press-event', (_actor, event) => this._onPress(event));
+        this.actor.connect('motion-event', (_actor, event) => this._onMotion(event));
+        this.actor.connect('button-release-event', () => this._onRelease());
 
         // Added first so the notch stays above it
         Main.layoutManager.addTopChrome(this._hotZone, {trackFullscreen: true});
         Main.layoutManager.addTopChrome(this.actor);
-        Main.layoutManager.connectObject('monitors-changed', () => this._move(this.expanded, false), this);
-        this._move(false, false);
+        Main.layoutManager.connectObject('monitors-changed', () => this._apply(false), this);
+        this._apply(false);
     }
 
-    get hovered() {
-        return this.actor.hover;
+    // True while the user is looking at or touching the notch
+    get held() {
+        return this.actor.hover || this.open || !!this._drag;
     }
 
     setConfig(config) {
@@ -155,7 +171,7 @@ class Pill {
             this._clearRevealTimeout();
             this._revealed = false;
         }
-        this._move(this.expanded, false);
+        this._apply(false);
     }
 
     setContent({title, body, gicon}) {
@@ -167,32 +183,27 @@ class Pill {
 
     expand() {
         this.expanded = true;
-        this._move(true, true, () => {
-            this._content.ease({
-                opacity: 255,
-                duration: CONTENT_FADE_MS,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            });
-        });
+        this._apply(true);
     }
 
     collapse(onDone) {
-        this._content.ease({
-            opacity: 0,
-            duration: CONTENT_FADE_MS,
-            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            onComplete: () => {
-                this.expanded = false;
-                this._collapsing = true;
-                this._move(false, true, () => {
-                    this._collapsing = false;
-                    onDone?.();
-                    // Apply a reveal change that happened mid-collapse
-                    if (!this.expanded && this.actor.visible !== this._idleShown())
-                        this._move(false, true);
-                });
-            },
+        this.expanded = false;
+        this._collapsing = true;
+        this._apply(true, () => {
+            this._collapsing = false;
+            onDone?.();
+            // Apply a state change that happened mid-collapse
+            if (this._mode() !== this._shownMode)
+                this._apply(true);
         });
+    }
+
+    _mode() {
+        if (this.open)
+            return 'full';
+        if (this.expanded)
+            return 'expanded';
+        return this._idleShown() ? 'idle' : 'hidden';
     }
 
     _idleShown() {
@@ -220,9 +231,9 @@ class Pill {
         if (this._revealed === revealed)
             return;
         this._revealed = revealed;
-        // The expanded notch stays put; a running collapse picks this up when done
-        if (!this.expanded && !this._collapsing)
-            this._move(false, true);
+        // A running collapse picks this up when done
+        if (!this._collapsing && this._mode() !== this._shownMode)
+            this._apply(true);
     }
 
     _clearRevealTimeout() {
@@ -232,20 +243,134 @@ class Pill {
         }
     }
 
+    _setOpen(open) {
+        this.open = open;
+        if (open && !this._stageEventId) {
+            this._stageEventId = global.stage.connect('captured-event',
+                (_stage, event) => this._onStageEvent(event));
+        } else if (!open && this._stageEventId) {
+            global.stage.disconnect(this._stageEventId);
+            this._stageEventId = 0;
+        }
+        this._apply(true);
+    }
+
+    _onStageEvent(event) {
+        const type = event.type();
+        if (type !== Clutter.EventType.BUTTON_PRESS && type !== Clutter.EventType.TOUCH_BEGIN)
+            return Clutter.EVENT_PROPAGATE;
+
+        // Close the pulled-open notch on any press outside of it
+        if (!this.actor.contains(global.stage.get_event_actor(event)))
+            this._setOpen(false);
+        return Clutter.EVENT_PROPAGATE;
+    }
+
+    _onPress(event) {
+        if (event.get_button() !== Clutter.BUTTON_PRIMARY || this._collapsing || this._drag)
+            return Clutter.EVENT_PROPAGATE;
+
+        const [, y] = event.get_coords();
+        this._drag = {startY: y, fromOpen: this.open, active: false, progress: this.open ? 1 : 0};
+        this._grab = global.stage.grab(this.actor);
+        return Clutter.EVENT_STOP;
+    }
+
+    _onMotion(event) {
+        const drag = this._drag;
+        if (!drag)
+            return Clutter.EVENT_PROPAGATE;
+
+        const {scale_factor: scale} = St.ThemeContext.get_for_stage(global.stage);
+        const [, y] = event.get_coords();
+        const dy = y - drag.startY;
+
+        if (!drag.active) {
+            if (Math.abs(dy) < DRAG_THRESHOLD * scale)
+                return Clutter.EVENT_STOP;
+
+            drag.active = true;
+            if (!drag.fromOpen)
+                this._onPull();
+            drag.closedHasContent = this.expanded;
+            drag.closed = this._geometry(this.expanded ? 'expanded' : 'idle');
+            drag.full = this._geometry('full');
+            this.actor.remove_all_transitions();
+            this._content.remove_all_transitions();
+            this._content.opacity = drag.fromOpen || drag.closedHasContent ? 255 : 0;
+        }
+
+        const range = Math.max(drag.full.height - drag.closed.height, MIN_PULL_RANGE * scale);
+        const t = Math.min(Math.max((drag.fromOpen ? 1 : 0) + dy / range, 0), 1);
+        const lerp = (from, to) => Math.round(from + (to - from) * t);
+        const width = lerp(drag.closed.width, drag.full.width);
+
+        drag.progress = t;
+        this.actor.set_position(drag.closed.x + Math.round((drag.closed.width - width) / 2), drag.closed.y);
+        this.actor.set_size(width, lerp(drag.closed.height, drag.full.height));
+        if (!drag.closedHasContent)
+            this._content.opacity = lerp(0, 255);
+        return Clutter.EVENT_STOP;
+    }
+
+    _onRelease() {
+        const drag = this._drag;
+        if (!drag)
+            return Clutter.EVENT_PROPAGATE;
+
+        this._drag = null;
+        this._grab?.dismiss();
+        this._grab = null;
+
+        if (drag.active) {
+            this._setOpen(drag.fromOpen
+                ? drag.progress > PULL_CLOSE_THRESHOLD
+                : drag.progress > PULL_OPEN_THRESHOLD);
+        } else {
+            if (this.open)
+                this._setOpen(false);
+            this._onClick();
+        }
+        this._updateReveal();
+        return Clutter.EVENT_STOP;
+    }
+
+    _setFullText(full) {
+        for (const label of [this._title, this._body]) {
+            label.clutter_text.line_wrap = full;
+            label.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+            label.clutter_text.ellipsize = full ? Pango.EllipsizeMode.NONE : Pango.EllipsizeMode.END;
+        }
+        if (full)
+            this.actor.add_style_class_name('notchline-full');
+        else
+            this.actor.remove_style_class_name('notchline-full');
+    }
+
     _placeHotZone() {
-        const {x, width} = this._geometry(false);
+        const {x, width} = this._geometry('idle');
         const {scale_factor: scale} = St.ThemeContext.get_for_stage(global.stage);
         this._hotZone.set_position(x, Main.layoutManager.primaryMonitor.y);
         this._hotZone.set_size(width, HOT_ZONE_HEIGHT * scale);
         this._hotZone.reactive = this._config.pill.reveal_on_hover;
     }
 
-    _geometry(expanded) {
+    _geometry(mode) {
         const monitor = Main.layoutManager.primaryMonitor;
         const {scale_factor: scale} = St.ThemeContext.get_for_stage(global.stage);
         const p = this._config.pill;
-        const width = (expanded ? p.expanded_width : p.idle_width) * scale;
-        const height = (expanded ? p.expanded_height : p.idle_height) * scale;
+        let width, height;
+        if (mode === 'full') {
+            // Grow to fit the wrapped text, never smaller than a banner
+            width = p.expanded_width * scale;
+            this._setFullText(true);
+            const [, natural] = this.actor.get_preferred_height(width);
+            height = Math.max(p.expanded_height * scale,
+                Math.min(natural, monitor.height * FULL_MAX_HEIGHT));
+        } else {
+            width = (mode === 'expanded' ? p.expanded_width : p.idle_width) * scale;
+            height = (mode === 'expanded' ? p.expanded_height : p.idle_height) * scale;
+        }
         return {
             x: monitor.x + Math.round((monitor.width - width) / 2),
             y: monitor.y + p.top_offset * scale,
@@ -254,55 +379,127 @@ class Pill {
         };
     }
 
-    _move(expanded, animate, onComplete) {
+    _apply(animate, onComplete) {
         if (!Main.layoutManager.primaryMonitor)
             return;
 
-        const p = this._config.pill;
-        const height = expanded ? p.expanded_height : p.idle_height;
-        // CSS lengths are scaled by St, so the radius stays in logical pixels
-        this.actor.style = `background-color: ${hexToRgba(p.background, p.opacity)}; ` +
-            `border-radius: ${Math.min(p.radius, height / 2)}px;`;
-
-        const visible = expanded || this._idleShown();
-        const geometry = this._geometry(expanded);
-        this._placeHotZone();
-
-        if (!animate) {
-            this.actor.remove_all_transitions();
-            this.actor.set_position(geometry.x, geometry.y);
-            this.actor.set_size(geometry.width, geometry.height);
-            this.actor.opacity = 255;
-            this.actor.visible = visible;
-            this._content.opacity = expanded ? 255 : 0;
+        const mode = this._mode();
+        this._shownMode = mode;
+        // The drag owns the geometry; the release settles it
+        if (this._drag?.active) {
             onComplete?.();
             return;
         }
 
-        if (visible && !this.actor.visible) {
-            this.actor.opacity = 0;
-            this.actor.show();
+        const p = this._config.pill;
+        const {scale_factor: scale} = St.ThemeContext.get_for_stage(global.stage);
+        const showContent = mode === 'expanded' || mode === 'full';
+        const geometry = this._geometry(mode === 'hidden' ? 'idle' : mode);
+        if (mode !== 'full')
+            this._setFullText(false);
+        // CSS lengths are scaled by St, so the radius stays in logical pixels
+        this.actor.style = `background-color: ${hexToRgba(p.background, p.opacity)}; ` +
+            `border-radius: ${Math.min(p.radius, geometry.height / scale / 2)}px;`;
+        this._placeHotZone();
+
+        if (!animate) {
+            this.actor.remove_all_transitions();
+            this._content.remove_all_transitions();
+            this.actor.set_position(geometry.x, geometry.y);
+            this.actor.set_size(geometry.width, geometry.height);
+            this.actor.opacity = 255;
+            this.actor.visible = mode !== 'hidden';
+            this._content.opacity = showContent ? 255 : 0;
+            onComplete?.();
+            return;
         }
 
+        const fadeContent = opacity => this._content.ease({
+            opacity,
+            duration: CONTENT_FADE_MS,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+        if (!showContent)
+            fadeContent(0);
+        const done = () => {
+            if (showContent)
+                fadeContent(255);
+            onComplete?.();
+        };
+
+        if (mode === 'hidden') {
+            if (this.actor.visible)
+                this._retract(done);
+            else
+                done();
+        } else if (!this.actor.visible) {
+            this._drip(geometry, done);
+        } else {
+            this.actor.ease({
+                ...geometry,
+                opacity: 255,
+                duration: p.animation_ms,
+                mode: geometry.height > this.actor.height
+                    ? Clutter.AnimationMode.EASE_OUT_BACK
+                    : Clutter.AnimationMode.EASE_IN_OUT_QUAD,
+                onComplete: done,
+            });
+        }
+    }
+
+    // Appear like a drop: stretch down from the top edge, then spread out
+    _drip(target, onComplete) {
+        const {animation_ms: duration} = this._config.pill;
+        const drop = Math.min(target.width, target.height);
+
+        this.actor.remove_all_transitions();
+        this.actor.set_position(target.x + Math.round((target.width - drop) / 2), target.y);
+        this.actor.set_size(drop, 0);
+        this.actor.opacity = 255;
+        this.actor.show();
         this.actor.ease({
-            ...geometry,
-            opacity: visible ? 255 : 0,
-            duration: p.animation_ms,
-            mode: expanded
-                ? Clutter.AnimationMode.EASE_OUT_BACK
-                : Clutter.AnimationMode.EASE_IN_OUT_QUAD,
-            onComplete: () => {
-                if (!visible) {
+            height: target.height,
+            duration: duration / 2,
+            mode: Clutter.AnimationMode.EASE_IN_QUAD,
+            onComplete: () => this.actor.ease({
+                x: target.x,
+                width: target.width,
+                duration,
+                mode: Clutter.AnimationMode.EASE_OUT_BACK,
+                onComplete,
+            }),
+        });
+    }
+
+    // The drop in reverse: pull in to a drop, then retract up into the edge
+    _retract(onComplete) {
+        const {animation_ms: duration} = this._config.pill;
+        const {x, width, height} = this.actor;
+        const drop = Math.min(width, height);
+
+        this.actor.ease({
+            x: x + Math.round((width - drop) / 2),
+            width: drop,
+            duration: duration / 2,
+            mode: Clutter.AnimationMode.EASE_IN_QUAD,
+            onComplete: () => this.actor.ease({
+                height: 0,
+                duration: duration / 2,
+                mode: Clutter.AnimationMode.EASE_IN_QUAD,
+                onComplete: () => {
                     this.actor.hide();
-                    this.actor.opacity = 255;
-                }
-                onComplete?.();
-            },
+                    onComplete?.();
+                },
+            }),
         });
     }
 
     destroy() {
         this._clearRevealTimeout();
+        this._grab?.dismiss();
+        this._grab = null;
+        if (this._stageEventId)
+            global.stage.disconnect(this._stageEventId);
         Main.layoutManager.disconnectObject(this);
         Main.layoutManager.removeChrome(this.actor);
         Main.layoutManager.removeChrome(this._hotZone);
@@ -319,7 +516,12 @@ export default class NotchlineExtension extends Extension {
         this._collapsing = false;
         this._timeoutId = 0;
 
-        this._pill = new Pill(this._config, () => this._onPillClicked());
+        this._lastContent = null;
+
+        this._pill = new Pill(this._config, {
+            onClick: () => this._onPillClicked(),
+            onPull: () => this._onPull(),
+        });
 
         this._injections = new InjectionManager();
         const ext = this;
@@ -427,7 +629,8 @@ export default class NotchlineExtension extends Extension {
         if (this._current?.notification === notification) {
             // Updated while shown: refresh text and extend the display time
             notification.acknowledged = true;
-            this._pill.setContent(this._contentFor(this._current));
+            this._lastContent = this._contentFor(this._current);
+            this._pill.setContent(this._lastContent);
             this._scheduleHide(this._current.timeout);
             return;
         }
@@ -468,7 +671,8 @@ export default class NotchlineExtension extends Extension {
         this._current = item;
         if (item.notification)
             item.notification.acknowledged = true;
-        this._pill.setContent(this._contentFor(item));
+        this._lastContent = this._contentFor(item);
+        this._pill.setContent(this._lastContent);
         this._pill.expand();
         this._scheduleHide(item.timeout);
     }
@@ -476,7 +680,7 @@ export default class NotchlineExtension extends Extension {
     _scheduleHide(ms) {
         this._clearTimeout();
         this._timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
-            if (this._pill.hovered) {
+            if (this._pill.held) {
                 this._scheduleHide(HOVER_RECHECK_MS);
                 return GLib.SOURCE_REMOVE;
             }
@@ -526,6 +730,12 @@ export default class NotchlineExtension extends Extension {
             item.notification.disconnect(item.destroyId);
             item.destroyId = 0;
         }
+    }
+
+    _onPull() {
+        // Pulling the idle notch shows the last notification again
+        if (!this._current)
+            this._pill.setContent(this._lastContent ?? {title: 'No notifications', body: ''});
     }
 
     _onPillClicked() {
