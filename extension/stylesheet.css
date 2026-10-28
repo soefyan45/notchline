@@ -1,0 +1,28 @@
+.notchline-pill {
+  padding: 0 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.notchline-content {
+  spacing: 12px;
+}
+
+.notchline-icon {
+  icon-size: 36px;
+  color: #ffffff;
+}
+
+.notchline-text {
+  spacing: 2px;
+}
+
+.notchline-title {
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 11pt;
+}
+
+.notchline-body {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 10pt;
+}

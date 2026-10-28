@@ -1,0 +1,7 @@
+{
+  "uuid": "notchline@soefyan45.github.io",
+  "name": "Notchline",
+  "description": "Notch-style notification layer for GNOME, powered by a Rust daemon.",
+  "shell-version": ["46"],
+  "version-name": "0.1.0"
+}
