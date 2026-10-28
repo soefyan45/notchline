@@ -1,0 +1,30 @@
+# Notchline config — copy to ~/.config/notchline/config.toml
+# Apply changes with: notchline reload
+# Every key is optional; missing keys fall back to these defaults.
+
+[pill]
+# Keep a small notch visible when there is no notification
+idle_visible = true
+# Notch size while idle (logical pixels)
+idle_width = 160
+idle_height = 30
+# Notch size while showing a notification (logical pixels)
+expanded_width = 420
+expanded_height = 72
+# Gap between the top of the screen and the notch
+top_offset = 4
+# Corner radius, clamped to half the height
+radius = 18
+# Background color (#rrggbb) and its opacity (0.0 - 1.0)
+background = "#000000"
+opacity = 0.95
+# Expand/collapse animation duration
+animation_ms = 280
+
+[behavior]
+# Default display time per notification
+timeout_ms = 4000
+# Suppress GNOME's own notification banners
+hide_gnome_banners = true
+# Show GNOME system notifications (notify-send, apps) in the notch
+capture_system = true
