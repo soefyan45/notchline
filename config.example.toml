@@ -11,6 +11,9 @@ reveal_on_hover = true
 # "menyatu" grows out of the top edge with concave corners,
 # "pulau" floats below it as a separate pill (uses top_offset)
 style = "menyatu"
+# Colors of the notch, the panel and the preferences window:
+# "default" (black, teal accent) or "te" (graphite, orange accent)
+theme = "default"
 # Notch size while idle (logical pixels); compact lines grow from this width
 idle_width = 200
 idle_height = 32

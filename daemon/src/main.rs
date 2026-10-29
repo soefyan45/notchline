@@ -63,6 +63,11 @@ enum Command {
     },
     /// Dismiss a notification or status by id
     Dismiss { id: u32 },
+    /// Hide the notch entirely until a new notification arrives, or show it again
+    Hide {
+        /// "off" shows the notch again
+        state: Option<String>,
+    },
     /// Forward a coding agent hook event read from stdin (used by the agent's hooks)
     Hook {
         /// Which agent sent it: claude or opencode
@@ -158,6 +163,8 @@ struct PillConfig {
     reveal_on_hover: bool,
     /// "menyatu" grows out of the top edge, "pulau" floats below it
     style: String,
+    /// Color theme of the notch, the panel and the preferences: "default" or "te"
+    theme: String,
     idle_width: u32,
     idle_height: u32,
     expanded_width: u32,
@@ -247,6 +254,7 @@ impl Default for PillConfig {
             idle_visible: true,
             reveal_on_hover: true,
             style: "menyatu".into(),
+            theme: "default".into(),
             idle_width: 200,
             idle_height: 32,
             expanded_width: 420,
@@ -563,6 +571,12 @@ impl Notchline {
         Ok(())
     }
 
+    /// Hide the notch until a new notification arrives; false shows it again
+    async fn hide(&self, hidden: bool, #[zbus(signal_emitter)] emitter: SignalEmitter<'_>) -> fdo::Result<()> {
+        Self::hide_requested(&emitter, hidden).await?;
+        Ok(())
+    }
+
     async fn reload(&mut self, #[zbus(signal_emitter)] emitter: SignalEmitter<'_>) -> fdo::Result<()> {
         self.config = load_config();
         self.config_changed(&emitter).await?;
@@ -615,6 +629,9 @@ impl Notchline {
 
     #[zbus(signal)]
     async fn focus_requested(emitter: &SignalEmitter<'_>, minutes: u32) -> zbus::Result<()>;
+
+    #[zbus(signal)]
+    async fn hide_requested(emitter: &SignalEmitter<'_>, hidden: bool) -> zbus::Result<()>;
 
     /// One hook event from a coding agent, as JSON. Returns a permission id when the
     /// notch can answer it (the hook then waits for PermissionAnswered), else 0.
@@ -978,6 +995,14 @@ async fn main() {
             }
             Command::Dismiss { id } => {
                 call("Dismiss", &(id,)).await?;
+            }
+            Command::Hide { state } => {
+                let hidden = match state.as_deref() {
+                    None | Some("on") => true,
+                    Some("off") => false,
+                    Some(value) => return Err(format!("expected \"on\" or \"off\", got {value:?}").into()),
+                };
+                call("Hide", &(hidden,)).await?;
             }
             Command::Reload => {
                 call("Reload", &()).await?;

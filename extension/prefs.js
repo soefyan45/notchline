@@ -25,6 +25,30 @@ const NotchlineProxy = Gio.DBusProxy.makeProxyWrapper(NotchlineIface);
 const SAVE_DELAY_MS = 250;
 const COMING_SOON = 'Segera hadir: fitur ini dibuat di tahap berikutnya.';
 
+// Notch color each theme starts from; picking a theme also sets pill.background
+const THEME_NOTCH = {default: '#000000', te: '#0F0E12'};
+
+// Theme "te" in this window: the orange accent in place of Adwaita's blue. Scoped to the
+// window's class because preferences of other extensions share this process.
+const TE_CSS = `
+window.notchline-theme-te switch:checked,
+window.notchline-theme-te check:checked,
+window.notchline-theme-te radio:checked,
+window.notchline-theme-te button.suggested-action {
+    background-color: #F05A24;
+    color: #0F0E12;
+}
+window.notchline-theme-te .navigation-sidebar > row:selected {
+    background-color: alpha(#F05A24, 0.18);
+}
+window.notchline-theme-te link,
+window.notchline-theme-te .accent {
+    color: #F05A24;
+}
+window.notchline-theme-te *:focus-visible {
+    outline-color: alpha(#F05A24, 0.5);
+}`;
+
 // A row whose texts are shown as typed, not parsed as Pango markup
 function plainRow({title, subtitle = '', ...props}) {
     const row = new Adw.ActionRow({use_markup: false, ...props});
@@ -60,6 +84,19 @@ export default class NotchlinePreferences extends ExtensionPreferences {
             this._error = e.message;
         }
 
+        const css = new Gtk.CssProvider();
+        css.load_from_string(TE_CSS);
+        Gtk.StyleContext.add_provider_for_display(window.get_display(), css,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+        const refreshTheme = () => {
+            if (this._get(['pill', 'theme']) === 'te')
+                window.add_css_class('notchline-theme-te');
+            else
+                window.remove_css_class('notchline-theme-te');
+        };
+        refreshTheme();
+        this._refreshers.push(refreshTheme);
+
         window.set_default_size(980, 820);
         window.width_request = 360;
         window.height_request = 480;
@@ -75,6 +112,7 @@ export default class NotchlinePreferences extends ExtensionPreferences {
         ]));
         window.connect('close-request', () => {
             this._flushSave();
+            Gtk.StyleContext.remove_provider_for_display(window.get_display(), css);
             return false;
         });
     }
@@ -235,7 +273,7 @@ export default class NotchlinePreferences extends ExtensionPreferences {
     }
 
     // Radio rows for a string option; options are [value, title, subtitle, enabled]
-    _choiceRows(group, path, options) {
+    _choiceRows(group, path, options, onChange = null) {
         let first = null;
         const checks = [];
         for (const [value, title, subtitle, enabled = true] of options) {
@@ -257,8 +295,10 @@ export default class NotchlinePreferences extends ExtensionPreferences {
         this._refreshers.push(refresh);
         // Connected after the first refresh so opening the window doesn't save
         checks.forEach(([value, check]) => check.connect('toggled', () => {
-            if (check.active)
-                this._set(path, value);
+            if (!check.active)
+                return;
+            this._set(path, value);
+            onChange?.(value);
         }));
     }
 
@@ -279,6 +319,18 @@ export default class NotchlinePreferences extends ExtensionPreferences {
                 `Pengaturan tidak bisa dibaca atau disimpan. Jalankan notchline install-service, lalu buka lagi.\n${this._error}`);
             group.add_css_class('error');
         }
+
+        const theme = this._group(page, 'Tema',
+            'Warna notch, panel, dan jendela ini. Memilih tema juga mengganti warna notch.');
+        this._choiceRows(theme, ['pill', 'theme'], [
+            ['default', 'Bawaan', 'Hitam dengan aksen toska'],
+            ['te', 'TE', 'Graphite dengan aksen oranye'],
+        ], value => {
+            this._set(['pill', 'background'], THEME_NOTCH[value]);
+            this._syncing = true;
+            this._refreshers.forEach(refresh => refresh());
+            this._syncing = false;
+        });
 
         const style = this._group(page, 'Gaya notch',
             'Bentuk notch saat muncul. Isi notch sama di semua gaya.');

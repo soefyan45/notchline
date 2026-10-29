@@ -555,3 +555,116 @@
 .notchline-bg-warn { background-color: #FBBF24; }
 .notchline-bg-success { background-color: #4ADE80; }
 .notchline-bg-muted { background-color: #9AA1AF; }
+
+/*
+ * Theme "te" from the Pego "Redesign · TE" page: graphite cards, orange accent.
+ *   screen-text #F5F5F5, screen-muted #B2B2B2, accent #F05A24, on-accent #0F0E12,
+ *   graphite #272727, graphite-2 #3B3B3D, graphite-border #4D4D4D,
+ *   led-green #3DDC84, yellow #FAB413. Set on the notch actor as .notchline-theme-te.
+ */
+.notchline-theme-te .notchline-lead-icon,
+.notchline-theme-te .notchline-lead-text,
+.notchline-theme-te .notchline-icon,
+.notchline-theme-te .notchline-title,
+.notchline-theme-te .notchline-tab:checked .notchline-tab-label,
+.notchline-theme-te .notchline-battery-icon,
+.notchline-theme-te .notchline-battery-label,
+.notchline-theme-te .notchline-song-title,
+.notchline-theme-te .notchline-media-icon,
+.notchline-theme-te .notchline-day,
+.notchline-theme-te .notchline-event-title,
+.notchline-theme-te .notchline-empty-title,
+.notchline-theme-te .notchline-agent-name,
+.notchline-theme-te .notchline-agent-count-value,
+.notchline-theme-te .notchline-badge-label,
+.notchline-theme-te .notchline-agent-headline,
+.notchline-theme-te .notchline-todo-in_progress,
+.notchline-theme-te .notchline-button,
+.notchline-theme-te .notchline-agents-settings {
+  color: #F5F5F5;
+}
+
+.notchline-theme-te .notchline-trail-text,
+.notchline-theme-te .notchline-body-text,
+.notchline-theme-te .notchline-tab-icon,
+.notchline-theme-te .notchline-tab-label,
+.notchline-theme-te .notchline-settings-icon,
+.notchline-theme-te .notchline-card-icon,
+.notchline-theme-te .notchline-card-title,
+.notchline-theme-te .notchline-song-artist,
+.notchline-theme-te .notchline-time,
+.notchline-theme-te .notchline-weekday,
+.notchline-theme-te .notchline-event-time,
+.notchline-theme-te .notchline-empty-hint,
+.notchline-theme-te .notchline-agent-sub,
+.notchline-theme-te .notchline-agent-count-unit,
+.notchline-theme-te .notchline-todo-label,
+.notchline-theme-te .notchline-agent-step,
+.notchline-theme-te .notchline-agents-count {
+  color: #B2B2B2;
+}
+
+.notchline-theme-te .notchline-empty-icon { color: #4D4D4D; }
+
+.notchline-theme-te .notchline-card {
+  background-color: #272727;
+  border: 1px solid #3B3B3D;
+}
+
+.notchline-theme-te .notchline-art,
+.notchline-theme-te .notchline-tab:checked,
+.notchline-theme-te .notchline-progress,
+.notchline-theme-te .notchline-media-button,
+.notchline-theme-te .notchline-agent-tile,
+.notchline-theme-te .notchline-badge,
+.notchline-theme-te .notchline-button {
+  background-color: #3B3B3D;
+}
+
+.notchline-theme-te .notchline-media-button:hover,
+.notchline-theme-te .notchline-button:hover {
+  background-color: #4D4D4D;
+}
+
+.notchline-theme-te .notchline-tab:hover,
+.notchline-theme-te .notchline-icon-button:hover {
+  background-color: rgba(245, 245, 245, 0.08);
+}
+
+.notchline-theme-te .notchline-agent-footer { border-top: 1px solid #3B3B3D; }
+
+.notchline-theme-te .notchline-art-empty {
+  background-gradient-start: #FAB413;
+  background-gradient-end: #F05A24;
+}
+
+.notchline-theme-te .notchline-visualizer-bar,
+.notchline-theme-te .notchline-progress-fill,
+.notchline-theme-te .notchline-media-main,
+.notchline-theme-te .notchline-button-accent {
+  background-color: #F05A24;
+}
+
+.notchline-theme-te .notchline-media-main:hover,
+.notchline-theme-te .notchline-button-accent:hover {
+  background-color: #F47A4D;
+}
+
+.notchline-theme-te .notchline-media-main .notchline-media-icon,
+.notchline-theme-te .notchline-button-accent {
+  color: #0F0E12;
+}
+
+.notchline-theme-te .notchline-link { color: #F05A24; }
+.notchline-theme-te .notchline-link:hover { background-color: rgba(240, 90, 36, 0.14); }
+
+/* Status colors of the theme; kept last for the same reason as above */
+.notchline-theme-te .notchline-accent { color: #F05A24; }
+.notchline-theme-te .notchline-success { color: #3DDC84; }
+.notchline-theme-te .notchline-warn { color: #FAB413; }
+.notchline-theme-te .notchline-danger { color: #F87171; }
+.notchline-theme-te .notchline-muted { color: #B2B2B2; }
+.notchline-theme-te .notchline-bg-accent { background-color: #F05A24; }
+.notchline-theme-te .notchline-bg-warn { background-color: #FAB413; }
+.notchline-theme-te .notchline-bg-success { background-color: #3DDC84; }
+.notchline-theme-te .notchline-bg-muted { background-color: #B2B2B2; }

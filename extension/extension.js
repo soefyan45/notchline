@@ -40,6 +40,9 @@ const NotchlineIface = `
     <method name="Dismiss">
       <arg type="u" name="id" direction="in"/>
     </method>
+    <method name="Hide">
+      <arg type="b" name="hidden" direction="in"/>
+    </method>
     <method name="Reload"/>
     <method name="AnswerPermission">
       <arg type="u" name="id" direction="in"/>
@@ -68,6 +71,9 @@ const NotchlineIface = `
     <signal name="DismissRequested">
       <arg type="u" name="id"/>
     </signal>
+    <signal name="HideRequested">
+      <arg type="b" name="hidden"/>
+    </signal>
   </interface>
 </node>`;
 
@@ -79,6 +85,7 @@ const DEFAULT_CONFIG = {
         idle_visible: true,
         reveal_on_hover: true,
         style: 'menyatu',
+        theme: 'default',
         idle_width: 200,
         idle_height: 32,
         expanded_width: 420,
@@ -274,6 +281,8 @@ class Pill {
         this._visualizerId = 0;
         this.expanded = false;
         this.open = false;
+        // Hidden entirely, even idle or with something ongoing, until shown again
+        this.hidden = false;
         this._collapsing = false;
         this._hovered = false;
         this._hoverOpen = false;
@@ -303,7 +312,12 @@ class Pill {
         this._tuneSprings();
 
         // The silhouette is drawn rather than styled so it can flow like a liquid
-        this.actor = new St.Widget({reactive: true, clip_to_allocation: true, visible: false});
+        this.actor = new St.Widget({
+            style_class: `notchline-theme-${config.pill.theme}`,
+            reactive: true,
+            clip_to_allocation: true,
+            visible: false,
+        });
         this._shape = new St.DrawingArea();
         this._shape.connect('repaint', area => this._paintShape(area));
         this._body = new St.BoxLayout({
@@ -436,6 +450,7 @@ class Pill {
 
     setConfig(config) {
         this._config = config;
+        this.actor.style_class = `notchline-theme-${config.pill.theme}`;
         this._tuneSprings();
         this._apply(false);
     }
@@ -462,6 +477,21 @@ class Pill {
             return;
         if (spec)
             this._render(spec);
+        if (!this._collapsing)
+            this._apply(true);
+    }
+
+    setHidden(hidden) {
+        this.hidden = hidden;
+        if (hidden) {
+            this._clearHoverTimeout();
+            this._hovered = false;
+            this._hoverOpen = false;
+            if (this.open) {
+                this._setOpen(false);
+                return;
+            }
+        }
         if (!this._collapsing)
             this._apply(true);
     }
@@ -556,6 +586,8 @@ class Pill {
     }
 
     _mode() {
+        if (this.hidden)
+            return 'hidden';
         // Opened by a pull or a resting pointer: a notification shows in full, else the panel
         if (this.open || this._hoverOpen)
             return this.expanded && this._spec?.body ? 'full' : 'panel';
@@ -614,7 +646,8 @@ class Pill {
             this._flushCallbacks();
         }
 
-        if (this._still && !this._pointerActive && !this._drag)
+        // A settle callback above may have set new targets; keep running for those
+        if (this._still && springs.every(spring => spring.settled) && !this._pointerActive && !this._drag)
             this._ticker.stop();
     }
 
@@ -668,7 +701,7 @@ class Pill {
         const height = Math.max(this._height.value, 0);
         const half = Math.max(width / 2, p.idle_width * scale / 2);
         const dx = px - cx;
-        const usable = !monitor.inFullscreen;
+        const usable = !monitor.inFullscreen && !this.hidden;
 
         const atEdge = usable && p.reveal_on_hover && Math.abs(dx) <= half &&
             py >= monitor.y && py <= monitor.y + HOT_ZONE_HEIGHT * scale;
@@ -1123,6 +1156,7 @@ export default class NotchlineExtension extends Extension {
         this._timeoutId = 0;
 
         this._paused = false;
+        this._hidden = false;
         this._activityKey = null;
         this._agents = [];
         this._seenPermissions = new Set();
@@ -1207,6 +1241,7 @@ export default class NotchlineExtension extends Extension {
 
         this._indicator?.destroy();
         this._indicator = null;
+        this._hideItem = null;
         this._media.disconnectObject(this);
         this._battery.disconnectObject(this);
         GLib.source_remove(this._meetingId);
@@ -1411,6 +1446,7 @@ export default class NotchlineExtension extends Extension {
         this._seenPermissions = new Set(pending);
         if (fresh.length && agent.permission_requests) {
             this._panel.showTab('agent');
+            this._setHidden(false);
             this._pill.openPanel();
             this._autoOpened = true;
         } else if (!pending.length && this._autoOpened) {
@@ -1429,6 +1465,7 @@ export default class NotchlineExtension extends Extension {
         if (!show) {
             this._indicator?.destroy();
             this._indicator = null;
+            this._hideItem = null;
             return;
         }
         if (this._indicator)
@@ -1438,7 +1475,10 @@ export default class NotchlineExtension extends Extension {
         this._indicator = new PanelMenu.Button(0.0, 'Notchline', false);
         this._indicator.add_child(new St.Icon({gicon: this._logoIcon(), style_class: 'system-status-icon'}));
         const menu = this._indicator.menu;
-        menu.addAction('Buka panel', () => this._pill.openPanel());
+        menu.addAction('Buka panel', () => {
+            this._setHidden(false);
+            this._pill.openPanel();
+        });
         const focus = menu.addAction('', () => {
             if (this._focusEnd)
                 this._startFocus(0);
@@ -1454,6 +1494,9 @@ export default class NotchlineExtension extends Extension {
             this._paused = state;
         });
         menu.addMenuItem(pause);
+        this._hideItem = new PopupMenu.PopupSwitchMenuItem('Sembunyikan notch', this._hidden);
+        this._hideItem.connect('toggled', (_item, state) => this._setHidden(state));
+        menu.addMenuItem(this._hideItem);
         menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         menu.addAction('Pengaturan', () => this.openPreferences());
         Main.panel.addToStatusArea(this.uuid, this._indicator);
@@ -1496,6 +1539,7 @@ export default class NotchlineExtension extends Extension {
                 this._removeItem(item => item.id === id);
             }),
             proxy.connectSignal('FocusRequested', (_p, _sender, [minutes]) => this._startFocus(minutes)),
+            proxy.connectSignal('HideRequested', (_p, _sender, [hidden]) => this._setHidden(hidden)),
         ];
         proxy.connectObject('g-properties-changed', (_proxy, changed) => {
             const keys = changed.deepUnpack();
@@ -1582,6 +1626,8 @@ export default class NotchlineExtension extends Extension {
     _enqueue(item) {
         if (this._paused && !item.notification)
             return;
+        // Anything new shows the hidden notch again
+        this._setHidden(false);
         this._queue.push(item);
         if (!this._current)
             this._showNext();
@@ -1598,6 +1644,20 @@ export default class NotchlineExtension extends Extension {
         this._pill.setItem(this._contentFor(item));
         this._pill.expand();
         this._scheduleHide(item.timeout);
+    }
+
+    _setHidden(hidden) {
+        if (hidden === this._hidden)
+            return;
+        this._hidden = hidden;
+        if (hidden) {
+            // What already arrived goes away too; only something new shows the notch
+            this._queue.forEach(item => this._release(item));
+            this._queue = [];
+            this._finishCurrent();
+        }
+        this._pill.setHidden(hidden);
+        this._hideItem?.setToggleState(hidden);
     }
 
     _scheduleHide(ms) {
