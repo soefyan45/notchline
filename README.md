@@ -49,9 +49,36 @@ and talks to the extension over D-Bus (`io.github.soefyan45.Notchline`).
 ## Requirements
 
 - GNOME Shell 46 (tested on Zorin OS 18, Wayland)
-- Rust toolchain (`cargo`)
+- x86_64 Linux for the release build, or a Rust toolchain (`cargo`) to build from source
 
 ## Install
+
+### From a release
+
+Download the daemon and the extension from the
+[latest release](https://github.com/soefyan45/notchline/releases/latest):
+
+```bash
+VERSION=v0.1.0
+BASE=https://github.com/soefyan45/notchline/releases/download/$VERSION
+
+# 1. Daemon + CLI
+curl -LO "$BASE/notchline-$VERSION-x86_64-linux.tar.gz"
+tar xzf "notchline-$VERSION-x86_64-linux.tar.gz"
+install -Dm755 "notchline-$VERSION-x86_64-linux/notchline" ~/.local/bin/notchline
+~/.local/bin/notchline install-service   # D-Bus activation: the daemon starts on demand
+
+# 2. Extension
+curl -LO "$BASE/notchline@soefyan45.github.io.shell-extension.zip"
+gnome-extensions install --force notchline@soefyan45.github.io.shell-extension.zip
+```
+
+Put the binary where it will stay before running `install-service` (and `install-hooks`):
+both write its full path. To update, replace the file at the same path and run
+`pkill -f '^.*/notchline daemon$'`; the next call starts the new daemon. Each release
+also has a `SHA256SUMS` file to check the downloads with `sha256sum -c SHA256SUMS`.
+
+### From source
 
 ```bash
 # 1. Daemon + CLI
@@ -62,6 +89,8 @@ notchline install-service   # D-Bus activation: the daemon starts on demand
 mkdir -p ~/.local/share/gnome-shell/extensions
 ln -sfn "$PWD/extension" ~/.local/share/gnome-shell/extensions/notchline@soefyan45.github.io
 ```
+
+### Enable
 
 Log out and back in (required on Wayland), then:
 
@@ -156,8 +185,9 @@ cd extension && gnome-extensions pack . --extra-source=icons --force --out-dir=.
 
 Upload `dist/notchline@soefyan45.github.io.shell-extension.zip` at
 <https://extensions.gnome.org/upload/>; the listing icon is uploaded there separately.
-The daemon is not part of the zip, so the listing should point to this repository for
-`cargo install`.
+The daemon is not part of the zip, so the listing should point to this repository's
+releases for it. Pushing a `v*` tag builds both the daemon and this zip and attaches them
+to a GitHub release (`.github/workflows/release.yml`).
 
 ## Development
 
