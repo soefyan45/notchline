@@ -28,18 +28,169 @@ const COMING_SOON = 'Coming soon: this feature is planned for a later release.';
 // Notch color each theme starts from; picking a theme also sets pill.background
 const THEME_NOTCH = {default: '#000000', te: '#0F0E12'};
 
-// Theme "te" in this window: the orange accent in place of Adwaita's blue. Scoped to the
-// window's class because preferences of other extensions share this process.
+// Theme "te" in this window (Pego "Redesign · TE", "Pengaturan"): a light, flat window,
+// sidebar keys, numbered sections and square switches with an LED. Scoped to the window's
+// class because preferences of other extensions share this process.
+//   bg #F0F0EF, surface #F5F5F5, surface-2 #E5E5E5, border #CCCCCC, key-shadow #B2B2B2,
+//   text #0F0E12, text-muted #4D4D4D, accent #F05A24, led-green #3DDC84
 const TE_CSS = `
-window.notchline-theme-te switch:checked,
+window.notchline-theme-te {
+    background-color: #F0F0EF;
+    color: #0F0E12;
+    font-family: "Noto Sans CJK JP", sans-serif;
+}
+window.notchline-theme-te headerbar {
+    background-color: #F0F0EF;
+    color: #0F0E12;
+    box-shadow: inset 0 -1px #CCCCCC;
+}
+window.notchline-theme-te headerbar .title {
+    font-size: 10px;
+    font-weight: 500;
+}
+window.notchline-theme-te .sidebar-pane,
+window.notchline-theme-te .sidebar-pane headerbar {
+    background-color: #E5E5E5;
+}
+window.notchline-theme-te toolbarview,
+window.notchline-theme-te scrolledwindow,
+window.notchline-theme-te preferencespage,
+window.notchline-theme-te viewport {
+    background-color: transparent;
+}
+
+window.notchline-theme-te .navigation-sidebar {
+    background-color: transparent;
+    padding: 6px 4px;
+}
+window.notchline-theme-te .navigation-sidebar > row {
+    margin: 3px 6px 5px 6px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    background-color: #F5F5F5;
+    color: #0F0E12;
+    box-shadow: 0 2px 0 0 #B2B2B2;
+}
+window.notchline-theme-te .navigation-sidebar > row:hover {
+    background-color: #FFFFFF;
+}
+window.notchline-theme-te .navigation-sidebar > row:selected {
+    background: #0F0E12;
+    color: #F5F5F5;
+    box-shadow: 0 2px 0 0 #000000;
+}
+window.notchline-theme-te .te-key-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+}
+window.notchline-theme-te .te-number {
+    font-size: 10px;
+    font-weight: 300;
+    color: #4D4D4D;
+    min-width: 18px;
+}
+window.notchline-theme-te .navigation-sidebar > row:selected .te-number {
+    color: #B2B2B2;
+}
+
+window.notchline-theme-te .te-crumb {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    color: #4D4D4D;
+}
+window.notchline-theme-te .te-page-title {
+    font-size: 32px;
+    font-weight: 200;
+}
+window.notchline-theme-te preferencesgroup .heading {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    color: #0F0E12;
+}
+window.notchline-theme-te preferencesgroup .description,
+window.notchline-theme-te .subtitle,
+window.notchline-theme-te .dim-label {
+    color: #4D4D4D;
+}
+
+window.notchline-theme-te .boxed-list {
+    background-color: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    border-top: 1px solid #CCCCCC;
+}
+window.notchline-theme-te .boxed-list > row {
+    background-color: transparent;
+    color: #0F0E12;
+    border-radius: 0;
+    border-bottom: 1px solid #CCCCCC;
+}
+window.notchline-theme-te .boxed-list > row:hover {
+    background-color: alpha(#0F0E12, 0.03);
+}
+
+window.notchline-theme-te switch {
+    min-width: 34px;
+    border-radius: 3px;
+    border: 1px solid #CCCCCC;
+    background: #E5E5E5;
+}
+window.notchline-theme-te switch slider {
+    border-radius: 2px;
+    background-color: #B2B2B2;
+    box-shadow: none;
+}
+window.notchline-theme-te switch:checked {
+    border-color: #0F0E12;
+    background: #0F0E12;
+}
+window.notchline-theme-te switch:checked slider {
+    background-color: #F5F5F5;
+    background-image: radial-gradient(circle, #3DDC84 28%, transparent 34%);
+}
+window.notchline-theme-te check,
+window.notchline-theme-te radio {
+    border-radius: 2px;
+    background: #F5F5F5;
+    box-shadow: inset 0 0 0 1px #B2B2B2;
+}
 window.notchline-theme-te check:checked,
-window.notchline-theme-te radio:checked,
+window.notchline-theme-te radio:checked {
+    background: #0F0E12;
+    color: #F5F5F5;
+    box-shadow: none;
+}
+
+window.notchline-theme-te button:not(.flat):not(.image-button) {
+    border-radius: 4px;
+    background-color: #F5F5F5;
+    color: #0F0E12;
+    box-shadow: 0 2px 0 0 #B2B2B2;
+}
 window.notchline-theme-te button.suggested-action {
     background-color: #F05A24;
     color: #0F0E12;
+    box-shadow: 0 2px 0 0 #9C3612;
 }
-window.notchline-theme-te .navigation-sidebar > row:selected {
-    background-color: alpha(#F05A24, 0.18);
+window.notchline-theme-te entry {
+    border-radius: 4px;
+    background-color: #F5F5F5;
+    color: #0F0E12;
+}
+window.notchline-theme-te spinbutton {
+    background: transparent;
+    color: #0F0E12;
+}
+window.notchline-theme-te spinbutton > button {
+    min-width: 22px;
+    min-height: 22px;
+    border-radius: 3px;
+    background: #E5E5E5;
+    color: #0F0E12;
+    box-shadow: 0 2px 0 0 #B2B2B2;
 }
 window.notchline-theme-te link,
 window.notchline-theme-te .accent {
@@ -48,6 +199,16 @@ window.notchline-theme-te .accent {
 window.notchline-theme-te *:focus-visible {
     outline-color: alpha(#F05A24, 0.5);
 }`;
+
+const pad = value => String(value).padStart(2, '0');
+
+// Calls fn for each descendant of a widget; fn returns false to skip its children
+function walk(widget, fn) {
+    for (let child = widget.get_first_child(); child; child = child.get_next_sibling()) {
+        if (fn(child) !== false)
+            walk(child, fn);
+    }
+}
 
 // A row whose texts are shown as typed, not parsed as Pango markup
 function plainRow({title, subtitle = '', ...props}) {
@@ -88,48 +249,120 @@ export default class NotchlinePreferences extends ExtensionPreferences {
         css.load_from_string(TE_CSS);
         Gtk.StyleContext.add_provider_for_display(window.get_display(), css,
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
-        const refreshTheme = () => {
-            if (this._get(['pill', 'theme']) === 'te')
-                window.add_css_class('notchline-theme-te');
-            else
-                window.remove_css_class('notchline-theme-te');
-        };
-        refreshTheme();
-        this._refreshers.push(refreshTheme);
 
+        this._window = window;
+        this._pageIndex = 0;
+        this._rebuildId = 0;
         window.set_default_size(980, 820);
         window.width_request = 360;
         window.height_request = 480;
         // GNOME requires a page in the window's own stack before our layout replaces it
         window.add(new Adw.PreferencesPage());
-        window.set_content(this._sidebarLayout(window, [
+        this._build();
+        window.connect('close-request', () => {
+            this._flushSave();
+            if (this._rebuildId)
+                GLib.source_remove(this._rebuildId);
+            Gtk.StyleContext.remove_provider_for_display(window.get_display(), css);
+            return false;
+        });
+    }
+
+    // The whole window content. Theme "te" adds page headers and numbers, so changing the
+    // theme builds it again.
+    _build() {
+        this._te = this._get(['pill', 'theme']) === 'te';
+        this._refreshers = [];
+        this._pageCount = 0;
+        if (this._te)
+            this._window.add_css_class('notchline-theme-te');
+        else
+            this._window.remove_css_class('notchline-theme-te');
+
+        const pages = [
             this._generalPage(),
             this._widgetPage(),
             this._shelfPage(),
             this._agentPage(),
             this._shortcutPage(),
             this._aboutPage(),
-        ]));
-        window.connect('close-request', () => {
-            this._flushSave();
-            Gtk.StyleContext.remove_provider_for_display(window.get_display(), css);
+        ];
+        if (this._te)
+            pages.forEach(page => this._numberRows(page));
+        this._window.set_content(this._sidebarLayout(pages));
+
+        this._refreshers.push(() => {
+            if ((this._get(['pill', 'theme']) === 'te') !== this._te)
+                this._queueRebuild();
+        });
+    }
+
+    // Rebuild once the signal that changed the theme has returned
+    _queueRebuild() {
+        if (this._rebuildId)
+            return;
+        this._rebuildId = GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+            this._rebuildId = 0;
+            this._build();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    // A page; theme "te" opens it with a header like the design (NL-01 · 01 · GENERAL)
+    _page(title, iconName) {
+        const page = new Adw.PreferencesPage({title, icon_name: iconName});
+        const index = ++this._pageCount;
+        if (!this._te)
+            return page;
+        const header = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 4});
+        header.append(new Gtk.Label({label: `NL-01 · ${pad(index)} · ${title.toUpperCase()}`, xalign: 0, css_classes: ['te-crumb']}));
+        header.append(new Gtk.Label({label: title.toLowerCase(), xalign: 0, css_classes: ['te-page-title']}));
+        const group = new Adw.PreferencesGroup();
+        group.add(header);
+        page.add(group);
+        return page;
+    }
+
+    // Theme "te": number the rows of each titled group, like the design. Rows of editable
+    // lists are left out since they are rebuilt as the list changes.
+    _numberRows(page) {
+        walk(page, widget => {
+            if (!(widget instanceof Adw.PreferencesGroup))
+                return true;
+            if (!widget.title)
+                return false;
+            let count = 0;
+            walk(widget, row => {
+                if (row instanceof Adw.EntryRow || row.has_css_class('monospace'))
+                    return false;
+                if (!(row instanceof Adw.ActionRow))
+                    return true;
+                row.add_prefix(new Gtk.Label({label: pad(++count), valign: Gtk.Align.CENTER, css_classes: ['te-number']}));
+                return false;
+            });
             return false;
         });
     }
 
     // Sidebar on the left, the selected page on the right, like the design; on a narrow
     // window the sidebar becomes the first screen
-    _sidebarLayout(window, pages) {
+    _sidebarLayout(pages) {
         const list = new Gtk.ListBox({css_classes: ['navigation-sidebar']});
-        for (const page of pages) {
+        pages.forEach((page, i) => {
             const box = new Gtk.Box({spacing: 12, margin_start: 6, margin_end: 6, margin_top: 6, margin_bottom: 6});
             box.append(new Gtk.Image({icon_name: page.icon_name}));
-            box.append(new Gtk.Label({label: page.title, xalign: 0}));
+            if (this._te) {
+                // A key: number on the left, the label on the right
+                box.append(new Gtk.Label({label: pad(i + 1), xalign: 0, css_classes: ['te-number']}));
+                box.append(new Gtk.Label({label: page.title.toUpperCase(), xalign: 1, hexpand: true, css_classes: ['te-key-label']}));
+            } else {
+                box.append(new Gtk.Label({label: page.title, xalign: 0}));
+            }
             list.append(new Gtk.ListBoxRow({child: box}));
-        }
+        });
 
         const sidebarHeader = new Adw.HeaderBar({show_title: true});
-        sidebarHeader.title_widget = new Adw.WindowTitle({title: 'Notchline'});
+        sidebarHeader.title_widget = new Adw.WindowTitle({title: this._te ? 'NL-01 · MENU' : 'Notchline'});
         const sidebarView = new Adw.ToolbarView({content: new Gtk.ScrolledWindow({
             child: list,
             hscrollbar_policy: Gtk.PolicyType.NEVER,
@@ -149,21 +382,28 @@ export default class NotchlinePreferences extends ExtensionPreferences {
             max_sidebar_width: 240,
         });
 
-        list.connect('row-activated', (_list, row) => {
-            const page = pages[row.get_index()];
+        const show = index => {
+            const page = pages[index];
+            this._pageIndex = index;
             contentView.content = page;
-            contentTitle.title = page.title;
+            contentTitle.title = this._te ? `NL-01 · SETTINGS · ${pad(index + 1)} / ${pad(pages.length)}` : page.title;
             split.content.title = page.title;
+        };
+        list.connect('row-activated', (_list, row) => {
+            show(row.get_index());
             split.show_content = true;
         });
-        list.select_row(list.get_row_at_index(0));
-        contentView.content = pages[0];
-        contentTitle.title = pages[0].title;
+        // Stay on the same page when the window is built again for another theme
+        const index = Math.min(this._pageIndex, pages.length - 1);
+        list.select_row(list.get_row_at_index(index));
+        show(index);
 
+        // In a bin of its own, so a rebuild doesn't pile breakpoints up on the window
+        const bin = new Adw.BreakpointBin({child: split, width_request: 360, height_request: 480});
         const breakpoint = new Adw.Breakpoint({condition: Adw.BreakpointCondition.parse('max-width: 600sp')});
         breakpoint.add_setter(split, 'collapsed', true);
-        window.add_breakpoint(breakpoint);
-        return split;
+        bin.add_breakpoint(breakpoint);
+        return bin;
     }
 
     // Config access and saving
@@ -303,7 +543,12 @@ export default class NotchlinePreferences extends ExtensionPreferences {
     }
 
     // Descriptions are plain text; Adwaita would parse them as Pango markup
+    // Theme "te" numbers the titled groups of a page: 01  THEME
     _group(page, title, description = '') {
+        if (this._te && title) {
+            page._teGroups = (page._teGroups ?? 0) + 1;
+            title = `${pad(page._teGroups)}  ${title.toUpperCase()}`;
+        }
         const group = new Adw.PreferencesGroup({title, description: GLib.markup_escape_text(description, -1)});
         page.add(group);
         return group;
@@ -312,7 +557,7 @@ export default class NotchlinePreferences extends ExtensionPreferences {
     // Pages
 
     _generalPage() {
-        const page = new Adw.PreferencesPage({title: 'General', icon_name: 'preferences-system-symbolic'});
+        const page = this._page('General', 'preferences-system-symbolic');
 
         if (this._error) {
             const group = this._group(page, 'Daemon not connected',
@@ -434,7 +679,7 @@ export default class NotchlinePreferences extends ExtensionPreferences {
 
     // Pages for features that are not built yet: the design's rows, shown but disabled
     _comingSoonPage(title, icon, description, sections) {
-        const page = new Adw.PreferencesPage({title, icon_name: icon});
+        const page = this._page(title, icon);
         this._group(page, title, `${description}\n\n${COMING_SOON}`);
         for (const [groupTitle, rows] of sections) {
             const group = this._group(page, groupTitle);
@@ -491,7 +736,7 @@ export default class NotchlinePreferences extends ExtensionPreferences {
     }
 
     _agentPage() {
-        const page = new Adw.PreferencesPage({title: 'AI agents', icon_name: 'utilities-terminal-symbolic'});
+        const page = this._page('AI agents', 'utilities-terminal-symbolic');
 
         const sources = this._group(page, 'Sources',
             'Notchline reads events from the Claude Code hooks and the OpenCode plugin, then shows their progress in the notch. No data leaves this computer.');
@@ -638,7 +883,7 @@ export default class NotchlinePreferences extends ExtensionPreferences {
     }
 
     _aboutPage() {
-        const page = new Adw.PreferencesPage({title: 'About', icon_name: 'help-about-symbolic'});
+        const page = this._page('About', 'help-about-symbolic');
 
         const app = this._group(page, '');
         const brand = plainRow({
