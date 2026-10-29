@@ -35,10 +35,10 @@ const FIRST_AGENT_KEY = 4;
 
 // LED and caption of each session status
 const AGENT_STATUS = {
-    working: {led: 'notchline-te-led-blue', text: 'BEKERJA'},
-    permission: {led: 'notchline-te-led-warn', text: 'BUTUH IZIN'},
-    done: {led: 'notchline-te-led-on', text: 'SELESAI'},
-    idle: {led: '', text: 'SIAP'},
+    working: {led: 'notchline-te-led-blue', text: 'WORKING'},
+    permission: {led: 'notchline-te-led-warn', text: 'NEEDS PERMISSION'},
+    done: {led: 'notchline-te-led-on', text: 'DONE'},
+    idle: {led: '', text: 'READY'},
 };
 
 const STEP_ICONS = {
@@ -118,8 +118,8 @@ function emptyWidget(text, iconName, title, hint) {
 function formatSpan(ms) {
     const minutes = Math.max(Math.round(ms / 1000), 0) / 60;
     if (minutes >= 60)
-        return [`${Math.floor(minutes / 60)}.${pad(Math.floor(minutes % 60))}`, 'JAM'];
-    return [formatTrackTime(ms * 1000), 'MNT'];
+        return [`${Math.floor(minutes / 60)}.${pad(Math.floor(minutes % 60))}`, 'HR'];
+    return [formatTrackTime(ms * 1000), 'MIN'];
 }
 
 export class TePanel {
@@ -141,8 +141,8 @@ export class TePanel {
 
         this._pages = {
             home: this._buildHome(),
-            shelf: emptyWidget('01  RAK', 'folder-symbolic', 'rak masih kosong',
-                'seret file ke notch untuk menyimpannya di sini. segera hadir.'),
+            shelf: emptyWidget('01  SHELF', 'folder-symbolic', 'the shelf is empty',
+                'drop files on the notch to keep them here. coming soon.'),
             agent: agents,
         };
         Object.values(this._pages).forEach(page => this.actor.add_child(page));
@@ -181,9 +181,9 @@ export class TePanel {
         const tabs = new St.BoxLayout({style_class: 'notchline-te-tabs', x_expand: true});
         this._tabs = {};
         for (const [name, text, number] of [
-            ['home', 'BERANDA', '01'],
-            ['shelf', 'RAK', '02'],
-            ['agent', 'AGEN', '03'],
+            ['home', 'HOME', '01'],
+            ['shelf', 'SHELF', '02'],
+            ['agent', 'AGENTS', '03'],
         ]) {
             const tab = key(text, number, 'notchline-te-tab');
             tab.connect('clicked', () => this.showTab(name));
@@ -230,7 +230,7 @@ export class TePanel {
     }
 
     _buildMusic() {
-        const {box} = widget('01  SEDANG DIPUTAR', {x_expand: true});
+        const {box} = widget('01  NOW PLAYING', {x_expand: true});
         const display = screen({vertical: true});
 
         const song = new St.BoxLayout({style_class: 'notchline-te-song'});
@@ -262,13 +262,13 @@ export class TePanel {
             this._segments.push(segment);
         }
 
-        this._musicEmpty = label('tidak ada musik yang diputar', 'notchline-te-hint', {visible: false});
+        this._musicEmpty = label('nothing is playing', 'notchline-te-hint', {visible: false});
         this._musicScreen = [song, times, progress];
         [...this._musicScreen, this._musicEmpty].forEach(actor => display.add_child(actor));
         box.add_child(display);
 
         this._controls = new St.BoxLayout({style_class: 'notchline-te-controls'});
-        this._prev = key('MUNDUR', '05', 'notchline-te-key-media');
+        this._prev = key('PREV', '05', 'notchline-te-key-media');
         this._prev.connect('clicked', () => this._media.current?.previous());
         this._playPause = new St.Button({
             style_class: 'notchline-te-play',
@@ -278,7 +278,7 @@ export class TePanel {
             x_align: Clutter.ActorAlign.CENTER,
         });
         this._playPause.connect('clicked', () => this._media.current?.playPause());
-        this._next = key('MAJU', '06', 'notchline-te-key-media');
+        this._next = key('NEXT', '06', 'notchline-te-key-media');
         this._next.connect('clicked', () => this._media.current?.next());
         [this._prev, this._playPause, this._next].forEach(actor => this._controls.add_child(actor));
         box.add_child(this._controls);
@@ -286,7 +286,7 @@ export class TePanel {
     }
 
     _buildCalendar() {
-        const {box} = widget('02  KALENDER', {style_class: 'notchline-te-widget notchline-te-widget-side'});
+        const {box} = widget('02  CALENDAR', {style_class: 'notchline-te-widget notchline-te-widget-side'});
         const display = screen();
         const date = new St.BoxLayout({style_class: 'notchline-te-readout', x_expand: true});
         this._day = new DotMatrix('notchline-te-dots', DOTS_DAY);
@@ -313,15 +313,15 @@ export class TePanel {
             events.add_child(row);
             this._eventRows.push({row, led, summary, time});
         }
-        this._noEvents = wrapped(label('tidak ada acara lagi hari ini', 'notchline-te-hint'));
+        this._noEvents = wrapped(label('no more events today', 'notchline-te-hint'));
         events.add_child(this._noEvents);
         box.add_child(events);
         return box;
     }
 
     _buildShelf() {
-        const {box} = widget('03  RAK', {style_class: 'notchline-te-widget notchline-te-widget-side'});
-        box.add_child(wrapped(label('seret file ke notch untuk menyimpannya di sini.',
+        const {box} = widget('03  SHELF', {style_class: 'notchline-te-widget notchline-te-widget-side'});
+        box.add_child(wrapped(label('drop files on the notch to keep them here.',
             'notchline-te-hint notchline-te-note')));
         return box;
     }
@@ -362,14 +362,14 @@ export class TePanel {
         });
         this._elapsed.text = formatTrackTime(position);
         this._length.text = length > 0 ? `/${formatTrackTime(length)}` : '';
-        this._remaining.text = length > 0 ? `sisa ${formatTrackTime(length - position)}` : '';
+        this._remaining.text = length > 0 ? `${formatTrackTime(length - position)} left` : '';
     }
 
     _updateCalendar() {
         const now = new Date();
         this._day.text = String(now.getDate());
-        this._month.text = new Intl.DateTimeFormat('id-ID', {month: 'short'}).format(now);
-        this._weekday.text = new Intl.DateTimeFormat('id-ID', {weekday: 'long'}).format(now).toLowerCase();
+        this._month.text = new Intl.DateTimeFormat('en-US', {month: 'short'}).format(now);
+        this._weekday.text = new Intl.DateTimeFormat('en-US', {weekday: 'long'}).format(now).toLowerCase();
 
         const events = this._calendar.today()
             .filter(event => event.end > now)
@@ -428,12 +428,12 @@ export class TeAgentsPage {
 
         this.actor = new St.BoxLayout({style_class: 'notchline-te-agents', vertical: true, x_expand: true});
         this._cards = new St.BoxLayout({style_class: 'notchline-te-widgets', x_expand: true});
-        this._empty = emptyWidget('AGEN', 'utilities-terminal-symbolic', 'belum ada sesi agen',
-            'pasang claude code atau opencode di pengaturan · agen ai, lalu mulai sesi di terminal.');
+        this._empty = emptyWidget('AGENTS', 'utilities-terminal-symbolic', 'no agent sessions yet',
+            'set up claude code or opencode in settings · ai agents, then start a session in a terminal.');
 
         const footer = new St.BoxLayout({style_class: 'notchline-te-agents-footer'});
         this._count = label('', 'notchline-te-hint', {x_expand: true, y_align: Clutter.ActorAlign.CENTER});
-        this._settings = key('SUMBER AGEN', '', 'notchline-te-key-wide');
+        this._settings = key('AGENT SOURCES', '', 'notchline-te-key-wide');
         this._settings.connect('clicked', () => onSettings());
         footer.add_child(this._count);
         footer.add_child(this._settings);
@@ -450,8 +450,8 @@ export class TeAgentsPage {
         const sorted = sortSessions(sessions);
         this._empty.visible = sorted.length === 0;
         this._cards.visible = sorted.length > 0;
-        const sources = [...new Set(sorted.map(agentName))].join(' dan ').toLowerCase();
-        this._count.text = sorted.length ? `${sorted.length} sesi · ${sources}` : '';
+        const sources = [...new Set(sorted.map(agentName))].join(' and ').toLowerCase();
+        this._count.text = sorted.length ? `${sorted.length} ${sorted.length === 1 ? 'session' : 'sessions'} · ${sources}` : '';
 
         // The first session gets the big card with its steps, the rest stack beside it
         const side = new St.BoxLayout({style_class: 'notchline-te-agent-side', vertical: true});
@@ -496,37 +496,37 @@ export class TeAgentsPage {
         card.add_child(display);
         const permission = session.status === 'permission' ? session.permission : null;
         if (permission) {
-            display.add_child(wrapped(label(permission.detail || 'butuh izin untuk melanjutkan',
+            display.add_child(wrapped(label(permission.detail || 'needs permission to continue',
                 'notchline-te-agent-headline')));
             const row = new St.BoxLayout();
             row.add_child(label(permission.tool ?? '', 'notchline-te-hint notchline-te-command',
                 {x_expand: true, y_align: Clutter.ActorAlign.END}));
             if (total && showProgress)
-                row.add_child(readout(`${done}/${total}`, 'LANGKAH', DOTS_STEPS));
+                row.add_child(readout(`${done}/${total}`, 'STEPS', DOTS_STEPS));
             display.add_child(row);
         } else if (session.status === 'done') {
             const row = new St.BoxLayout();
             const [value, unit] = session.finished_ms
-                ? formatSpan(session.finished_ms - session.started_ms) : ['0.00', 'MNT'];
+                ? formatSpan(session.finished_ms - session.started_ms) : ['0.00', 'MIN'];
             const time = readout(value, unit, DOTS_DURATION);
             time.x_expand = true;
             row.add_child(time);
-            row.add_child(label(total ? `${done} dari ${total} tugas selesai` : 'selesai',
+            row.add_child(label(total ? `${done} of ${total} tasks done` : 'done',
                 'notchline-te-hint notchline-te-command', {y_align: Clutter.ActorAlign.END}));
             display.add_child(row);
         } else {
             const row = new St.BoxLayout();
             const current = session.todos?.find(todo => todo.status === 'in_progress');
             if (total && showProgress) {
-                const tasks = readout(`${done}/${total}`, 'TUGAS', DOTS_TASKS);
+                const tasks = readout(`${done}/${total}`, 'TASKS', DOTS_TASKS);
                 tasks.x_expand = true;
                 row.add_child(tasks);
             }
             const now = new St.BoxLayout({vertical: true, x_expand: !total, y_align: Clutter.ActorAlign.END});
             const align = total ? Clutter.ActorAlign.END : Clutter.ActorAlign.START;
-            now.add_child(label(current?.content ?? session.tool ?? 'menunggu', 'notchline-te-event-title', {x_align: align}));
+            now.add_child(label(current?.content ?? session.tool ?? 'waiting', 'notchline-te-event-title', {x_align: align}));
             if (session.started_ms) {
-                now.add_child(label(`berjalan ${formatSpan(Date.now() - session.started_ms)[0]}`, 'notchline-te-hint',
+                now.add_child(label(`running ${formatSpan(Date.now() - session.started_ms)[0]}`, 'notchline-te-hint',
                     {x_align: align}));
             }
             row.add_child(now);
@@ -550,10 +550,10 @@ export class TeAgentsPage {
         if (permission) {
             // Deny always works; allow only for safe commands; or hand back to the terminal
             const actions = new St.BoxLayout({style_class: 'notchline-te-actions'});
-            actions.add_child(this._key('DI TERMINAL', '', () => this._onAnswer(permission.id, 'terminal'), {x_expand: true}));
-            actions.add_child(this._key('TOLAK', '', () => this._onAnswer(permission.id, 'deny'), {x_expand: true}));
+            actions.add_child(this._key('IN TERMINAL', '', () => this._onAnswer(permission.id, 'terminal'), {x_expand: true}));
+            actions.add_child(this._key('DENY', '', () => this._onAnswer(permission.id, 'deny'), {x_expand: true}));
             if (permission.safe) {
-                actions.add_child(this._key('IZINKAN SEKALI', 'notchline-te-key-accent',
+                actions.add_child(this._key('ALLOW ONCE', 'notchline-te-key-accent',
                     () => this._onAnswer(permission.id, 'allow'), {x_expand: true}));
             }
             card.add_child(actions);
@@ -566,10 +566,10 @@ export class TeAgentsPage {
             y_expand: true,
             y_align: Clutter.ActorAlign.END,
         });
-        const text = session.status === 'done' ? session.summary || 'ringkasan siap dibaca' : session.tool;
+        const text = session.status === 'done' ? session.summary || 'summary ready to read' : session.tool;
         footer.add_child(label(text ?? '', 'notchline-te-hint notchline-te-command', {x_expand: true, y_align: Clutter.ActorAlign.CENTER}));
         if (window) {
-            footer.add_child(this._key(session.status === 'done' ? 'BACA' : 'BUKA TERMINAL',
+            footer.add_child(this._key(session.status === 'done' ? 'READ' : 'OPEN TERMINAL',
                 session.status === 'done' ? 'notchline-te-key-media' : 'notchline-te-key-wide',
                 () => Main.activateWindow(window)));
         }

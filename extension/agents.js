@@ -13,10 +13,10 @@ const SIDE_CARDS = 3;
 
 // Look of each session status: tile icon, color token, and badge text
 const STATUS = {
-    working: {icon: 'utilities-terminal-symbolic', color: 'accent', badge: 'Bekerja'},
-    permission: {icon: 'security-medium-symbolic', color: 'warn', badge: 'Butuh izin'},
-    done: {icon: 'object-select-symbolic', color: 'success', badge: 'Selesai'},
-    idle: {icon: 'utilities-terminal-symbolic', color: 'muted', badge: 'Siap'},
+    working: {icon: 'utilities-terminal-symbolic', color: 'accent', badge: 'Working'},
+    permission: {icon: 'security-medium-symbolic', color: 'warn', badge: 'Needs permission'},
+    done: {icon: 'object-select-symbolic', color: 'success', badge: 'Done'},
+    idle: {icon: 'utilities-terminal-symbolic', color: 'muted', badge: 'Ready'},
 };
 // Which sessions come first: the ones that need the user, then the busy ones
 const STATUS_ORDER = ['permission', 'working', 'done', 'idle'];
@@ -29,14 +29,14 @@ const TODO_ICONS = {
 
 export const agentName = session => AGENT_NAMES[session.source] ?? session.source;
 
-// 6m 41d, the way the design writes durations (d = detik)
+// 6m 41s, the way the design writes durations
 export function formatDuration(ms) {
     const seconds = Math.max(Math.round(ms / 1000), 0);
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor(seconds % 3600 / 60);
     if (hours)
-        return `${hours}j ${minutes}m`;
-    return minutes ? `${minutes}m ${seconds % 60}d` : `${seconds % 60}d`;
+        return `${hours}h ${minutes}m`;
+    return minutes ? `${minutes}m ${seconds % 60}s` : `${seconds % 60}s`;
 }
 
 export function todoProgress(session) {
@@ -89,15 +89,15 @@ export class AgentsPage {
             style_class: 'notchline-empty-icon',
             x_align: Clutter.ActorAlign.CENTER,
         }));
-        this._empty.add_child(label('Belum ada sesi agen', 'notchline-empty-title', {x_align: Clutter.ActorAlign.CENTER}));
-        this._empty.add_child(label('Pasang Claude Code atau OpenCode di Pengaturan · Agen AI, lalu mulai sesi di terminal.',
+        this._empty.add_child(label('No agent sessions yet', 'notchline-empty-title', {x_align: Clutter.ActorAlign.CENTER}));
+        this._empty.add_child(label('Set up Claude Code or OpenCode in Settings · AI agents, then start a session in a terminal.',
             'notchline-empty-hint', {x_align: Clutter.ActorAlign.CENTER}));
 
         const footer = new St.BoxLayout({style_class: 'notchline-agents-footer'});
         this._count = label('', 'notchline-agents-count', {x_expand: true, y_align: Clutter.ActorAlign.CENTER});
         const settingsContent = new St.BoxLayout({style_class: 'notchline-tab-content'});
         settingsContent.add_child(icon('emblem-system-symbolic', 'notchline-tab-icon'));
-        settingsContent.add_child(label('Atur sumber agen', 'notchline-agents-settings', {y_align: Clutter.ActorAlign.CENTER}));
+        settingsContent.add_child(label('Agent sources', 'notchline-agents-settings', {y_align: Clutter.ActorAlign.CENTER}));
         const settings = new St.Button({style_class: 'notchline-icon-button', child: settingsContent, can_focus: true});
         settings.connect('clicked', () => onSettings());
         footer.add_child(this._count);
@@ -115,8 +115,8 @@ export class AgentsPage {
         const sorted = sortSessions(sessions);
         this._empty.visible = sorted.length === 0;
         this._cards.visible = sorted.length > 0;
-        const sources = [...new Set(sorted.map(agentName))].join(' dan ');
-        this._count.text = sorted.length ? `${sorted.length} sesi · ${sources}` : '';
+        const sources = [...new Set(sorted.map(agentName))].join(' and ');
+        this._count.text = sorted.length ? `${sorted.length} ${sorted.length === 1 ? 'session' : 'sessions'} · ${sources}` : '';
 
         // The first session gets the big card with its todo list, the rest stack beside it
         sorted.forEach((session, i) => {
@@ -154,7 +154,7 @@ export class AgentsPage {
         if (session.status === 'working' && total && showProgress) {
             const count = new St.BoxLayout({style_class: 'notchline-agent-count', y_align: Clutter.ActorAlign.CENTER});
             count.add_child(label(`${done}/${total}`, 'notchline-agent-count-value'));
-            count.add_child(label('tugas', 'notchline-agent-count-unit', {y_align: Clutter.ActorAlign.END}));
+            count.add_child(label('tasks', 'notchline-agent-count-unit', {y_align: Clutter.ActorAlign.END}));
             header.add_child(count);
         } else {
             const badge = new St.BoxLayout({style_class: 'notchline-badge', y_align: Clutter.ActorAlign.CENTER});
@@ -166,9 +166,9 @@ export class AgentsPage {
 
         let headline = null;
         if (session.status === 'permission')
-            headline = session.permission?.detail || 'Butuh izin untuk melanjutkan';
+            headline = session.permission?.detail || 'Needs permission to continue';
         else if (session.status === 'done')
-            headline = session.summary || (total ? `${done} dari ${total} tugas selesai` : 'Selesai');
+            headline = session.summary || (total ? `${done} of ${total} tasks done` : 'Done');
         if (headline)
             card.add_child(label(headline, 'notchline-agent-headline'));
 
@@ -199,20 +199,20 @@ export class AgentsPage {
         if (session.status === 'permission')
             step = session.permission?.tool ?? '';
         else if (session.status === 'done' && session.finished_ms)
-            step = `Selesai dalam ${formatDuration(session.finished_ms - session.started_ms)}`;
+            step = `Done in ${formatDuration(session.finished_ms - session.started_ms)}`;
         footer.add_child(label(step, 'notchline-agent-step notchline-mono', {x_expand: true, y_align: Clutter.ActorAlign.CENTER}));
         if (window)
-            footer.add_child(button('Buka terminal', 'notchline-link', () => Main.activateWindow(window)));
+            footer.add_child(button('Open terminal', 'notchline-link', () => Main.activateWindow(window)));
         card.add_child(footer);
 
         // Permission: deny always works; allow only for safe commands; or hand back to the terminal
         const permission = session.status === 'permission' ? session.permission : null;
         if (permission) {
             const actions = new St.BoxLayout({style_class: 'notchline-agent-actions', x_align: Clutter.ActorAlign.END});
-            actions.add_child(button('Di terminal', 'notchline-button', () => this._onAnswer(permission.id, 'terminal')));
-            actions.add_child(button('Tolak', 'notchline-button', () => this._onAnswer(permission.id, 'deny')));
+            actions.add_child(button('In terminal', 'notchline-button', () => this._onAnswer(permission.id, 'terminal')));
+            actions.add_child(button('Deny', 'notchline-button', () => this._onAnswer(permission.id, 'deny')));
             if (permission.safe) {
-                actions.add_child(button('Izinkan sekali', 'notchline-button notchline-button-accent',
+                actions.add_child(button('Allow once', 'notchline-button notchline-button-accent',
                     () => this._onAnswer(permission.id, 'allow')));
             }
             card.add_child(actions);

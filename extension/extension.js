@@ -1276,7 +1276,7 @@ export default class NotchlineExtension extends Extension {
                 trail: `${this._battery.percentage}%`,
                 trailColor: 'success',
                 trailMono: true,
-                title: 'Mengisi daya',
+                title: 'Charging',
             },
             timeout: CHARGING_NOTICE_MS,
         });
@@ -1299,11 +1299,11 @@ export default class NotchlineExtension extends Extension {
                     icon: new Gio.ThemedIcon({name: 'camera-video-symbolic'}),
                     iconColor: 'success',
                     text: event.summary,
-                    trail: `${Math.max(Math.round(left / 60000), 1)} mnt`,
+                    trail: `${Math.max(Math.round(left / 60000), 1)} min`,
                     trailColor: 'success',
                     trailMono: true,
                     title: event.summary,
-                    body: `Mulai ${event.date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`,
+                    body: `Starts at ${event.date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`,
                 },
                 timeout: MEETING_NOTICE_MS,
             });
@@ -1342,8 +1342,8 @@ export default class NotchlineExtension extends Extension {
             spec: {
                 icon: new Gio.ThemedIcon({name: 'alarm-symbolic'}),
                 iconColor: 'success',
-                text: 'Fokus selesai',
-                trail: `${this._focusMinutes} mnt`,
+                text: 'Focus done',
+                trail: `${this._focusMinutes} min`,
                 trailColor: 'success',
                 trailMono: true,
             },
@@ -1359,7 +1359,7 @@ export default class NotchlineExtension extends Extension {
         return {
             icon: new Gio.ThemedIcon({name: 'alarm-symbolic'}),
             iconColor: 'warn',
-            text: 'Fokus',
+            text: 'Focus',
             trail: `${Math.floor(seconds / 60)}.${String(seconds % 60).padStart(2, '0')}`,
             trailColor: 'warn',
             trailMono: true,
@@ -1389,7 +1389,7 @@ export default class NotchlineExtension extends Extension {
                 icon: new Gio.ThemedIcon({name: 'security-medium-symbolic'}),
                 iconColor: 'warn',
                 text: agentName(session),
-                trail: 'Izin?',
+                trail: 'Allow?',
                 trailColor: 'warn',
                 trailMono: true,
             };
@@ -1436,11 +1436,11 @@ export default class NotchlineExtension extends Extension {
                 spec: {
                     icon: new Gio.ThemedIcon({name: 'object-select-symbolic'}),
                     iconColor: 'success',
-                    text: `${agentName(session)} selesai`,
+                    text: `${agentName(session)} done`,
                     trail: formatDuration((session.finished_ms ?? Date.now()) - session.started_ms),
                     trailColor: 'success',
                     trailMono: true,
-                    title: `${agentName(session)} selesai · ${session.project}`,
+                    title: `${agentName(session)} done · ${session.project}`,
                     body: session.summary,
                 },
                 timeout: AGENT_DONE_MS,
@@ -1482,7 +1482,7 @@ export default class NotchlineExtension extends Extension {
         this._indicator = new PanelMenu.Button(0.0, 'Notchline', false);
         this._indicator.add_child(new St.Icon({gicon: this._logoIcon(), style_class: 'system-status-icon'}));
         const menu = this._indicator.menu;
-        menu.addAction('Buka panel', () => {
+        menu.addAction('Open panel', () => {
             this._setHidden(false);
             this._pill.openPanel();
         });
@@ -1494,18 +1494,18 @@ export default class NotchlineExtension extends Extension {
         });
         menu.connect('open-state-changed', (_menu, open) => {
             if (open)
-                focus.label.text = this._focusEnd ? 'Hentikan fokus' : `Fokus ${this._config.system.focus_minutes} menit`;
+                focus.label.text = this._focusEnd ? 'Stop focus' : `Focus for ${this._config.system.focus_minutes} min`;
         });
-        const pause = new PopupMenu.PopupSwitchMenuItem('Jeda notifikasi notch', this._paused);
+        const pause = new PopupMenu.PopupSwitchMenuItem('Pause notch notifications', this._paused);
         pause.connect('toggled', (_item, state) => {
             this._paused = state;
         });
         menu.addMenuItem(pause);
-        this._hideItem = new PopupMenu.PopupSwitchMenuItem('Sembunyikan notch', this._hidden);
+        this._hideItem = new PopupMenu.PopupSwitchMenuItem('Hide notch', this._hidden);
         this._hideItem.connect('toggled', (_item, state) => this._setHidden(state));
         menu.addMenuItem(this._hideItem);
         menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-        menu.addAction('Pengaturan', () => this.openPreferences());
+        menu.addAction('Settings', () => this.openPreferences());
         Main.panel.addToStatusArea(this.uuid, this._indicator);
     }
 

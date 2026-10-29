@@ -838,7 +838,7 @@ async fn run_hook(source: &str) -> Result<(), Box<dyn std::error::Error>> {
     };
     let output = match decision.as_str() {
         "allow" => json!({"behavior": "allow"}),
-        "deny" => json!({"behavior": "deny", "message": "Ditolak dari Notchline"}),
+        "deny" => json!({"behavior": "deny", "message": "Denied from Notchline"}),
         _ => return Ok(()),
     };
     println!(

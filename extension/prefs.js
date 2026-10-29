@@ -23,7 +23,7 @@ const NotchlineProxy = Gio.DBusProxy.makeProxyWrapper(NotchlineIface);
 
 // Wait for typing or dragging a slider to pause before writing config.toml
 const SAVE_DELAY_MS = 250;
-const COMING_SOON = 'Segera hadir: fitur ini dibuat di tahap berikutnya.';
+const COMING_SOON = 'Coming soon: this feature is planned for a later release.';
 
 // Notch color each theme starts from; picking a theme also sets pill.background
 const THEME_NOTCH = {default: '#000000', te: '#0F0E12'};
@@ -312,19 +312,19 @@ export default class NotchlinePreferences extends ExtensionPreferences {
     // Pages
 
     _generalPage() {
-        const page = new Adw.PreferencesPage({title: 'Umum', icon_name: 'preferences-system-symbolic'});
+        const page = new Adw.PreferencesPage({title: 'General', icon_name: 'preferences-system-symbolic'});
 
         if (this._error) {
-            const group = this._group(page, 'Daemon tidak terhubung',
-                `Pengaturan tidak bisa dibaca atau disimpan. Jalankan notchline install-service, lalu buka lagi.\n${this._error}`);
+            const group = this._group(page, 'Daemon not connected',
+                `Settings can't be read or saved. Run notchline install-service, then reopen this window.\n${this._error}`);
             group.add_css_class('error');
         }
 
-        const theme = this._group(page, 'Tema',
-            'Warna notch, panel, dan jendela ini. Memilih tema juga mengganti warna notch.');
+        const theme = this._group(page, 'Theme',
+            'Colors of the notch, panel and this window. Choosing a theme also changes the notch color.');
         this._choiceRows(theme, ['pill', 'theme'], [
-            ['default', 'Bawaan', 'Hitam dengan aksen toska'],
-            ['te', 'TE', 'Graphite dengan aksen oranye'],
+            ['default', 'Default', 'Black with a teal accent'],
+            ['te', 'TE', 'Graphite with an orange accent'],
         ], value => {
             this._set(['pill', 'background'], THEME_NOTCH[value]);
             this._syncing = true;
@@ -332,80 +332,80 @@ export default class NotchlinePreferences extends ExtensionPreferences {
             this._syncing = false;
         });
 
-        const style = this._group(page, 'Gaya notch',
-            'Bentuk notch saat muncul. Isi notch sama di semua gaya.');
+        const style = this._group(page, 'Notch style',
+            'Shape of the notch when it appears. Its content is the same in every style.');
         this._choiceRows(style, ['pill', 'style'], [
-            ['menyatu', 'Menyatu', 'Tumbuh dari tepi atas layar dengan sudut melengkung ke dalam'],
-            ['pulau', 'Pulau melayang', 'Kapsul terpisah di bawah tepi atas'],
-            ['sayap', 'Sayap', `Info di kiri dan kanan notch. ${COMING_SOON}`, false],
+            ['menyatu', 'Merged', 'Grows out of the top screen edge with inward curved corners'],
+            ['pulau', 'Floating island', 'A separate capsule below the top edge'],
+            ['sayap', 'Wings', `Info on the left and right of the notch. ${COMING_SOON}`, false],
         ]);
 
-        const display = this._group(page, 'Tampilan');
-        this._switchRow(display, ['pill', 'reveal_on_hover'], 'Muncul saat kursor ke atas',
-            'Notch tersembunyi saat diam, lalu muncul saat kursor menyentuh tepi atas tengah.');
-        this._switchRow(display, ['pill', 'idle_visible'], 'Tampil saat diam',
-            'Dipakai saat "Muncul saat kursor ke atas" mati.');
-        this._spinRow(display, ['pill', 'idle_width'], 'Lebar notch diam', 'Piksel. Status ringkas melebar dari ukuran ini.',
+        const display = this._group(page, 'Display');
+        this._switchRow(display, ['pill', 'reveal_on_hover'], 'Show when the pointer moves up',
+            'The notch stays hidden when idle and appears when the pointer touches the top center edge.');
+        this._switchRow(display, ['pill', 'idle_visible'], 'Show when idle',
+            'Used when "Show when the pointer moves up" is off.');
+        this._spinRow(display, ['pill', 'idle_width'], 'Idle notch width', 'Pixels. The compact status expands from this size.',
             {lower: 80, upper: 600});
-        this._spinRow(display, ['pill', 'idle_height'], 'Tinggi notch', 'Piksel.', {lower: 16, upper: 80});
-        this._spinRow(display, ['pill', 'expanded_width'], 'Lebar notifikasi penuh', 'Piksel, saat notch dibuka.',
+        this._spinRow(display, ['pill', 'idle_height'], 'Notch height', 'Pixels.', {lower: 16, upper: 80});
+        this._spinRow(display, ['pill', 'expanded_width'], 'Expanded notification width', 'Pixels, when the notch is expanded.',
             {lower: 200, upper: 1000});
-        this._spinRow(display, ['pill', 'expanded_height'], 'Tinggi minimum notifikasi penuh', 'Piksel.',
+        this._spinRow(display, ['pill', 'expanded_height'], 'Minimum expanded notification height', 'Pixels.',
             {lower: 32, upper: 400});
-        this._spinRow(display, ['pill', 'panel_width'], 'Lebar panel', 'Piksel, panel yang terbuka saat notch di-hover atau ditarik.',
+        this._spinRow(display, ['pill', 'panel_width'], 'Panel width', 'Pixels, for the panel that opens when the notch is hovered or pulled.',
             {lower: 400, upper: 1600, step: 10});
-        this._spinRow(display, ['pill', 'radius'], 'Sudut', 'Piksel, dibatasi setengah tinggi notch.',
+        this._spinRow(display, ['pill', 'radius'], 'Corner radius', 'Pixels, limited to half the notch height.',
             {lower: 0, upper: 60});
-        this._spinRow(display, ['pill', 'top_offset'], 'Jarak dari tepi atas', 'Piksel, hanya untuk gaya Pulau melayang.',
+        this._spinRow(display, ['pill', 'top_offset'], 'Top offset', 'Pixels, only for the Floating island style.',
             {lower: 0, upper: 60});
-        this._colorRow(display, ['pill', 'background'], 'Warna notch', 'Hitam menyatu dengan bezel layar.');
-        this._spinRow(display, ['pill', 'opacity'], 'Opasitas', '0 sampai 1.',
+        this._colorRow(display, ['pill', 'background'], 'Notch color', 'Black blends in with the screen bezel.');
+        this._spinRow(display, ['pill', 'opacity'], 'Opacity', '0 to 1.',
             {lower: 0, upper: 1, step: 0.05, digits: 2});
 
-        const behavior = this._group(page, 'Perilaku');
-        this._switchRow(behavior, ['behavior', 'show_indicator'], 'Ikon di top bar',
-            'Akses cepat untuk membuka panel, jeda notifikasi notch, dan pengaturan.');
-        this._switchRow(behavior, ['behavior', 'capture_system'], 'Tampilkan notifikasi sistem',
-            'Notifikasi aplikasi dan notify-send muncul di notch.');
-        this._switchRow(behavior, ['behavior', 'hide_gnome_banners'], 'Sembunyikan banner GNOME',
-            'Banner bawaan GNOME tidak muncul saat notifikasi tampil di notch.');
-        this._spinRow(behavior, ['behavior', 'timeout_ms'], 'Lama tampil', 'Milidetik per notifikasi.',
+        const behavior = this._group(page, 'Behavior');
+        this._switchRow(behavior, ['behavior', 'show_indicator'], 'Top bar icon',
+            'Quick access to open the panel, pause notch notifications and open settings.');
+        this._switchRow(behavior, ['behavior', 'capture_system'], 'Show system notifications',
+            'App notifications and notify-send appear in the notch.');
+        this._switchRow(behavior, ['behavior', 'hide_gnome_banners'], 'Hide GNOME banners',
+            'The default GNOME banners are hidden while a notification shows in the notch.');
+        this._spinRow(behavior, ['behavior', 'timeout_ms'], 'Display time', 'Milliseconds per notification.',
             {lower: 1000, upper: 30000, step: 500});
 
-        const system = this._group(page, 'Status sistem', 'Keadaan ringkas yang muncul sendiri di notch.');
-        this._switchRow(system, ['system', 'charging_notice'], 'Mengisi daya',
-            'Tampilkan level baterai 3 detik saat charger dicolok.');
-        this._switchRow(system, ['system', 'meeting_reminder'], 'Rapat segera dimulai',
-            'Ingatkan sebelum acara di Kalender GNOME dimulai.');
-        this._spinRow(system, ['system', 'meeting_minutes'], 'Ingatkan sebelum rapat', 'Menit.',
+        const system = this._group(page, 'System status', 'Compact states that appear in the notch on their own.');
+        this._switchRow(system, ['system', 'charging_notice'], 'Charging',
+            'Show the battery level for 3 seconds when the charger is plugged in.');
+        this._switchRow(system, ['system', 'meeting_reminder'], 'Meeting starting soon',
+            'Remind before an event in GNOME Calendar starts.');
+        this._spinRow(system, ['system', 'meeting_minutes'], 'Remind before meeting', 'Minutes.',
             {lower: 1, upper: 30});
-        this._spinRow(system, ['system', 'focus_minutes'], 'Lama timer fokus',
-            'Menit. Mulai dari menu ikon Notchline di top bar, atau notchline focus.', {lower: 1, upper: 180});
+        this._spinRow(system, ['system', 'focus_minutes'], 'Focus timer length',
+            'Minutes. Start it from the Notchline top bar icon menu, or with notchline focus.', {lower: 1, upper: 180});
 
-        const drop = this._group(page, 'Tetes',
-            'Tetes cair yang menjulur ke arah kursor di dekat tepi atas tengah. Semua ukuran dalam piksel.');
-        this._switchRow(drop, ['drop', 'enabled'], 'Aktifkan tetes');
-        this._spinRow(drop, ['drop', 'pull_range'], 'Jarak tarik', 'Jarak kursor di bawah notch saat tetes mulai tertarik.',
+        const drop = this._group(page, 'Drop',
+            'A liquid drop that stretches toward the pointer near the top center edge. All sizes are in pixels.');
+        this._switchRow(drop, ['drop', 'enabled'], 'Enable drop');
+        this._spinRow(drop, ['drop', 'pull_range'], 'Pull distance', 'Pointer distance below the notch at which the drop starts to stretch.',
             {lower: 0, upper: 300});
-        this._spinRow(drop, ['drop', 'max_depth'], 'Panjang maksimum', 'Seberapa jauh tetes menjulur.',
+        this._spinRow(drop, ['drop', 'max_depth'], 'Maximum length', 'How far the drop stretches.',
             {lower: 0, upper: 100});
-        this._spinRow(drop, ['drop', 'min_width'], 'Lebar minimum', '', {lower: 1, upper: 50, step: 0.5, digits: 1});
-        this._spinRow(drop, ['drop', 'max_width'], 'Lebar maksimum', '', {lower: 1, upper: 80, step: 0.5, digits: 1});
-        this._spinRow(drop, ['drop', 'blend'], 'Kelembutan sambungan', 'Seberapa halus tetes menyatu dengan notch.',
+        this._spinRow(drop, ['drop', 'min_width'], 'Minimum width', '', {lower: 1, upper: 50, step: 0.5, digits: 1});
+        this._spinRow(drop, ['drop', 'max_width'], 'Maximum width', '', {lower: 1, upper: 80, step: 0.5, digits: 1});
+        this._spinRow(drop, ['drop', 'blend'], 'Blend softness', 'How smoothly the drop merges with the notch.',
             {lower: 0, upper: 30, step: 0.5, digits: 1});
 
-        const motion = this._group(page, 'Pegas',
-            'Setiap gerakan digerakkan pegas. Stiffness makin besar makin cepat; damping makin kecil makin banyak goyang.');
-        this._spinRow(motion, ['pill', 'animation_ms'], 'Kecepatan animasi',
-            'Milidetik acuan; 280 memakai angka pegas apa adanya, lebih kecil lebih cepat.', {lower: 50, upper: 2000, step: 10});
-        for (const [name, label] of [['width', 'Lebar notch'], ['height', 'Tinggi notch'],
-            ['drop', 'Panjang tetes'], ['drop_x', 'Geser tetes']]) {
+        const motion = this._group(page, 'Springs',
+            'Every movement is driven by a spring. Higher stiffness is faster; lower damping wobbles more.');
+        this._spinRow(motion, ['pill', 'animation_ms'], 'Animation speed',
+            'Reference in milliseconds; 280 uses the spring values as they are, lower is faster.', {lower: 50, upper: 2000, step: 10});
+        for (const [name, label] of [['width', 'Notch width'], ['height', 'Notch height'],
+            ['drop', 'Drop length'], ['drop_x', 'Drop shift']]) {
             this._spinRow(motion, ['spring', `${name}_stiffness`], `${label} · stiffness`, '',
                 {lower: 1, upper: 3000, step: 10});
             this._spinRow(motion, ['spring', `${name}_damping`], `${label} · damping`, '',
                 {lower: 0, upper: 200, step: 1});
         }
-        const reset = new Gtk.Button({label: 'Kembalikan bawaan', valign: Gtk.Align.CENTER});
+        const reset = new Gtk.Button({label: 'Restore defaults', valign: Gtk.Align.CENTER});
         reset.connect('clicked', () => {
             this._config.drop = {};
             this._config.spring = {};
@@ -443,69 +443,69 @@ export default class NotchlinePreferences extends ExtensionPreferences {
 
     _widgetPage() {
         return this._comingSoonPage('Widget', 'view-grid-symbolic',
-            'Pilih widget yang muncul di panel notch dan urutannya.', [
-                ['Widget di panel', [
-                    ['Musik', 'Lagu yang sedang diputar dan kontrol pemutar (MPRIS)', 'switch'],
-                    ['Kalender', 'Acara berikutnya dan sisa waktu sebelum mulai', 'switch'],
-                    ['Rak file', 'File yang kamu seret ke notch', 'switch'],
-                    ['Agen AI', 'Progres Claude Code dan OpenCode', 'switch'],
-                    ['Timer', 'Hitung mundur dan Pomodoro dari notch', 'switch'],
-                    ['Baterai perangkat', 'Laptop dan perangkat Bluetooth (UPower)', 'switch'],
+            'Choose the widgets shown in the notch panel and their order.', [
+                ['Widgets in the panel', [
+                    ['Music', 'Now playing and player controls (MPRIS)', 'switch'],
+                    ['Calendar', 'Next event and time left until it starts', 'switch'],
+                    ['File shelf', 'Files you drag to the notch', 'switch'],
+                    ['AI agents', 'Claude Code and OpenCode progress', 'switch'],
+                    ['Timer', 'Countdown and Pomodoro from the notch', 'switch'],
+                    ['Device battery', 'Laptop and Bluetooth devices (UPower)', 'switch'],
                 ]],
-                ['Musik', [
-                    ['Sumber pemutar', 'Mengikuti aplikasi yang terakhir memutar', 'Otomatis'],
-                    ['Warna mengikuti sampul album', 'Garis progres dan visualizer memakai warna sampul', 'switch'],
-                    ['Visualizer di notch ringkas', 'Batang kecil bergerak selama lagu diputar', 'switch'],
+                ['Music', [
+                    ['Player source', 'Follows the app that played last', 'Automatic'],
+                    ['Colors follow album art', 'The progress line and visualizer use the cover colors', 'switch'],
+                    ['Visualizer in the compact notch', 'Small bars move while a song plays', 'switch'],
                 ]],
-                ['Kalender', [
-                    ['Kalender yang dibaca', 'Diambil dari akun di Kalender GNOME', 'Semua'],
-                    ['Ingatkan sebelum rapat', 'Notch melebar 5 menit sebelumnya', 'switch'],
+                ['Calendar', [
+                    ['Calendars to read', 'Taken from the accounts in GNOME Calendar', 'All'],
+                    ['Remind before meeting', 'The notch expands 5 minutes before', 'switch'],
                 ]],
             ]);
     }
 
     _shelfPage() {
-        return this._comingSoonPage('Rak', 'folder-symbolic',
-            'Seret file ke notch untuk menyimpannya sebentar, lalu seret lagi ke aplikasi mana pun.', [
-                ['Penyimpanan', [
-                    ['Simpan file selama', 'Setelah itu file dihapus dari rak', '24 jam'],
-                    ['Batas ukuran rak', 'File baru ditolak jika rak penuh', '2 GB'],
-                    ['Salin file, jangan pindahkan', 'File asli tetap di tempatnya', 'switch'],
-                    ['Buka rak saat file diseret ke notch', 'Notch melebar saat kursor membawa file mendekat', 'switch'],
+        return this._comingSoonPage('Shelf', 'folder-symbolic',
+            'Drag files to the notch to hold them for a while, then drag them on to any app.', [
+                ['Storage', [
+                    ['Keep files for', 'After that, files are removed from the shelf', '24 hours'],
+                    ['Shelf size limit', 'New files are rejected when the shelf is full', '2 GB'],
+                    ['Copy files, don\'t move them', 'The original files stay where they are', 'switch'],
+                    ['Open the shelf when a file is dragged to the notch', 'The notch expands as the pointer brings a file close', 'switch'],
                 ]],
-                ['Aksi cepat', [
-                    ['Kompres jadi ZIP', 'Hasilnya masuk lagi ke rak', 'switch'],
-                    ['Salin jalur file', 'Untuk ditempel ke terminal atau prompt agen', 'switch'],
+                ['Quick actions', [
+                    ['Compress to ZIP', 'The result goes back to the shelf', 'switch'],
+                    ['Copy file path', 'To paste into a terminal or an agent prompt', 'switch'],
                 ]],
             ]);
     }
 
     _agentPage() {
-        const page = new Adw.PreferencesPage({title: 'Agen AI', icon_name: 'utilities-terminal-symbolic'});
+        const page = new Adw.PreferencesPage({title: 'AI agents', icon_name: 'utilities-terminal-symbolic'});
 
-        const sources = this._group(page, 'Sumber',
-            'Notchline membaca kejadian dari hook Claude Code dan plugin OpenCode, lalu menampilkan progresnya di notch. Tidak ada data yang dikirim keluar dari komputer ini.');
+        const sources = this._group(page, 'Sources',
+            'Notchline reads events from the Claude Code hooks and the OpenCode plugin, then shows their progress in the notch. No data leaves this computer.');
         this._sourceRow(sources, 'Claude Code', 'Hook · ~/.claude/settings.json', 'claude',
             () => this._claudeHooksInstalled());
         this._sourceRow(sources, 'OpenCode', 'Plugin · ~/.config/opencode/plugins/notchline.ts', 'opencode',
             () => this._openCodePluginInstalled());
 
-        const display = this._group(page, 'Tampilkan di notch', 'Berlaku untuk semua sumber di atas.');
-        this._switchRow(display, ['agent', 'enabled'], 'Aktifkan agen');
-        this._switchRow(display, ['agent', 'show_progress'], 'Progres tugas',
-            'Ambil daftar todo agen dan tampilkan sebagai langkah, misalnya 4/7.');
-        this._switchRow(display, ['agent', 'permission_requests'], 'Permintaan izin',
-            'Notch terbuka di tab Agen sampai kamu menjawab di notch atau di terminal.');
-        this._switchRow(display, ['agent', 'notify_done'], 'Beri tahu saat agen selesai',
-            'Notch melebar 4 detik dengan total durasi kerja.');
-        this._switchRow(display, ['agent', 'allow_from_notch'], 'Izinkan dari notch',
-            'Tombol Izinkan sekali hanya muncul untuk perintah di daftar aman.');
-        this._spinRow(display, ['agent', 'permission_timeout_s'], 'Batas tunggu izin',
-            'Detik. Setelah itu terminal yang bertanya seperti biasa.', {lower: 10, upper: 600, step: 5});
+        const display = this._group(page, 'Show in the notch', 'Applies to all the sources above.');
+        this._switchRow(display, ['agent', 'enabled'], 'Enable agents');
+        this._switchRow(display, ['agent', 'show_progress'], 'Task progress',
+            'Read the agent\'s todo list and show it as steps, for example 4/7.');
+        this._switchRow(display, ['agent', 'permission_requests'], 'Permission requests',
+            'The notch stays open on the Agents tab until you answer in the notch or in the terminal.');
+        this._switchRow(display, ['agent', 'notify_done'], 'Notify when an agent finishes',
+            'The notch expands for 4 seconds with the total working time.');
+        this._switchRow(display, ['agent', 'allow_from_notch'], 'Allow from the notch',
+            'The Allow once button only appears for commands on the safe list.');
+        this._spinRow(display, ['agent', 'permission_timeout_s'], 'Permission timeout',
+            'Seconds. After that, the terminal asks as usual.', {lower: 10, upper: 600, step: 5});
 
-        const safe = this._group(page, 'Perintah aman',
-            'Hanya perintah ini (persis, atau diikuti argumen) yang bisa diizinkan dari notch. Perintah yang memuat ; & | ` $( > <, sudo, rm -rf, git push atau curl selalu ditanyakan di terminal.');
-        this._listRows(safe, ['agent', 'safe_commands'], 'Tambah perintah, misalnya npm test');
+        const safe = this._group(page, 'Safe commands',
+            'Only these commands (exactly, or followed by arguments) can be allowed from the notch. Commands containing ; & | ` $( > <, sudo, rm -rf, git push or curl are always asked in the terminal.');
+        this._listRows(safe, ['agent', 'safe_commands'], 'Add a command, for example npm test');
         return page;
     }
 
@@ -522,7 +522,7 @@ export default class NotchlinePreferences extends ExtensionPreferences {
                     icon_name: 'user-trash-symbolic',
                     valign: Gtk.Align.CENTER,
                     css_classes: ['flat'],
-                    tooltip_text: 'Hapus',
+                    tooltip_text: 'Remove',
                 });
                 remove.connect('clicked', () => {
                     this._set(path, (this._get(path) ?? []).filter(value => value !== item));
@@ -554,8 +554,8 @@ export default class NotchlinePreferences extends ExtensionPreferences {
         const toggle = new Gtk.Button({valign: Gtk.Align.CENTER});
         const refresh = () => {
             const installed = isInstalled();
-            state.label = installed ? 'Terhubung' : 'Belum dipasang';
-            toggle.label = installed ? 'Lepas' : 'Pasang';
+            state.label = installed ? 'Connected' : 'Not installed';
+            toggle.label = installed ? 'Remove' : 'Install';
             toggle.css_classes = installed ? [] : ['suggested-action'];
         };
         toggle.connect('clicked', () => {
@@ -564,7 +564,7 @@ export default class NotchlinePreferences extends ExtensionPreferences {
                 toggle.sensitive = true;
                 refresh();
                 if (error)
-                    state.label = `Gagal: ${error}`;
+                    state.label = `Failed: ${error}`;
             });
         });
         refresh();
@@ -611,29 +611,29 @@ export default class NotchlinePreferences extends ExtensionPreferences {
     }
 
     _shortcutPage() {
-        return this._comingSoonPage('Pintasan', 'input-keyboard-symbolic',
-            'Pintasan berlaku di semua aplikasi selama Notchline berjalan.', [
+        return this._comingSoonPage('Shortcuts', 'input-keyboard-symbolic',
+            'Shortcuts work in all apps while Notchline is running.', [
                 ['Notch', [
-                    ['Buka atau tutup panel', '', 'Super+Alt+N'],
-                    ['Putar atau jeda musik', '', 'Super+Alt+P'],
-                    ['Lagu berikutnya', '', 'Super+Alt+→'],
-                    ['Jeda semua notifikasi notch', 'Belum diatur', ''],
+                    ['Open or close the panel', '', 'Super+Alt+N'],
+                    ['Play or pause music', '', 'Super+Alt+P'],
+                    ['Next track', '', 'Super+Alt+→'],
+                    ['Pause all notch notifications', 'Not set', ''],
                 ]],
-                ['Agen AI', [
-                    ['Izinkan permintaan', 'Hanya untuk perintah di daftar aman', 'Super+Alt+Y'],
-                    ['Tolak permintaan', '', 'Super+Alt+X'],
-                    ['Lihat semua sesi agen', '', 'Super+Alt+A'],
+                ['AI agents', [
+                    ['Allow request', 'Only for commands on the safe list', 'Super+Alt+Y'],
+                    ['Deny request', '', 'Super+Alt+X'],
+                    ['View all agent sessions', '', 'Super+Alt+A'],
                 ]],
             ]);
     }
 
     _aboutPage() {
-        const page = new Adw.PreferencesPage({title: 'Tentang', icon_name: 'help-about-symbolic'});
+        const page = new Adw.PreferencesPage({title: 'About', icon_name: 'help-about-symbolic'});
 
         const app = this._group(page, '');
         const brand = plainRow({
             title: 'Notchline',
-            subtitle: `Versi ${this.metadata['version-name'] ?? this.metadata.version ?? '?'}`,
+            subtitle: `Version ${this.metadata['version-name'] ?? this.metadata.version ?? '?'}`,
         });
         brand.add_css_class('title-3');
         brand.add_prefix(new Gtk.Image({
@@ -645,12 +645,12 @@ export default class NotchlinePreferences extends ExtensionPreferences {
         app.add(brand);
         app.add(plainRow({
             title: 'Daemon',
-            subtitle: this._error ? `Tidak terhubung: ${this._error}` : `Terhubung · ${BUS_NAME}`,
+            subtitle: this._error ? `Not connected: ${this._error}` : `Connected · ${BUS_NAME}`,
         }));
 
         const path = GLib.build_filenamev([GLib.get_user_config_dir(), 'notchline', 'config.toml']);
-        const file = plainRow({title: 'File konfigurasi', subtitle: path, subtitle_selectable: true});
-        const open = new Gtk.Button({label: 'Buka di editor', valign: Gtk.Align.CENTER});
+        const file = plainRow({title: 'Configuration file', subtitle: path, subtitle_selectable: true});
+        const open = new Gtk.Button({label: 'Open in editor', valign: Gtk.Align.CENTER});
         open.connect('clicked', () => {
             this._flushSave();
             try {
@@ -662,13 +662,13 @@ export default class NotchlinePreferences extends ExtensionPreferences {
         file.add_suffix(open);
         app.add(file);
 
-        const cli = this._group(page, 'Dari terminal',
-            'Perubahan di halaman ini langsung disimpan ke file konfigurasi. Setelah mengubah file dengan tangan, jalankan notchline reload.');
+        const cli = this._group(page, 'From the terminal',
+            'Changes on this page are saved to the configuration file right away. After editing the file by hand, run notchline reload.');
         for (const [command, description] of [
-            ['notchline show "Judul" "Isi"', 'Tampilkan notifikasi'],
-            ['notchline status --icon alarm-symbolic --text Fokus --trail 24.59 --color warn', 'Tampilkan status ringkas'],
-            ['notchline config', 'Cetak konfigurasi yang berlaku'],
-            ['notchline reload', 'Muat ulang config.toml'],
+            ['notchline show "Title" "Body"', 'Show a notification'],
+            ['notchline status --icon alarm-symbolic --text Focus --trail 24.59 --color warn', 'Show a compact status'],
+            ['notchline config', 'Print the effective configuration'],
+            ['notchline reload', 'Reload config.toml'],
         ]) {
             const row = plainRow({title: description, subtitle: command, subtitle_selectable: true});
             row.add_css_class('property');

@@ -10,7 +10,7 @@ import {isAllDay} from './system.js';
 // then the Home widgets. The shelf and agent tabs come in later phases.
 
 export const CALENDAR_EVENTS = 2;
-// Soon enough to count down "n mnt lagi" instead of showing the time range
+// Soon enough to count down "in n min" instead of showing the time range
 export const SOON_MINUTES = 60;
 export const TICK_SECONDS = 1;
 
@@ -65,11 +65,11 @@ export function startsSoon(event, now) {
 
 export function eventTime(event, now, soon) {
     if (isAllDay(event))
-        return 'Sepanjang hari';
+        return 'All day';
     if (event.date <= now)
-        return `${formatClock(event.date)}-${formatClock(event.end)} · berlangsung`;
+        return `${formatClock(event.date)}-${formatClock(event.end)} · now`;
     if (soon)
-        return `${formatClock(event.date)} · ${Math.round((event.date - now) / 60000)} mnt lagi`;
+        return `${formatClock(event.date)} · in ${Math.round((event.date - now) / 60000)} min`;
     return `${formatClock(event.date)}-${formatClock(event.end)}`;
 }
 
@@ -89,8 +89,8 @@ export class NotchPanel {
 
         this._pages = {
             home: this._buildHome(),
-            shelf: this._emptyPage('folder-symbolic', 'Rak masih kosong',
-                'Seret file ke notch untuk menyimpannya di sini. Segera hadir.'),
+            shelf: this._emptyPage('folder-symbolic', 'The shelf is empty',
+                'Drop files on the notch to keep them here. Coming soon.'),
             agent: agents,
         };
         Object.values(this._pages).forEach(page => this.actor.add_child(page));
@@ -130,9 +130,9 @@ export class NotchPanel {
         const tabs = new St.BoxLayout({style_class: 'notchline-tabs', x_expand: true});
         this._tabs = {};
         for (const [name, iconName, text] of [
-            ['home', 'go-home-symbolic', 'Beranda'],
-            ['shelf', 'folder-symbolic', 'Rak'],
-            ['agent', 'utilities-terminal-symbolic', 'Agen'],
+            ['home', 'go-home-symbolic', 'Home'],
+            ['shelf', 'folder-symbolic', 'Shelf'],
+            ['agent', 'utilities-terminal-symbolic', 'Agents'],
         ]) {
             const content = new St.BoxLayout({style_class: 'notchline-tab-content'});
             content.add_child(icon(iconName, 'notchline-tab-icon'));
@@ -183,7 +183,7 @@ export class NotchPanel {
     }
 
     _buildMusic() {
-        const {box} = card('audio-x-generic-symbolic', 'Sedang diputar', {x_expand: true});
+        const {box} = card('audio-x-generic-symbolic', 'Now playing', {x_expand: true});
         const body = new St.BoxLayout({style_class: 'notchline-music', vertical: true});
 
         const song = new St.BoxLayout({style_class: 'notchline-song'});
@@ -222,14 +222,14 @@ export class NotchPanel {
         this._next = button('media-skip-forward-symbolic', 'notchline-media-button', player => player?.next());
 
         this._musicBody = [song, progress, controls];
-        this._musicEmpty = label('Tidak ada musik yang diputar', 'notchline-empty-hint', {visible: false});
+        this._musicEmpty = label('Nothing is playing', 'notchline-empty-hint', {visible: false});
         [...this._musicBody, this._musicEmpty].forEach(actor => body.add_child(actor));
         box.add_child(body);
         return box;
     }
 
     _buildCalendar() {
-        const {box} = card('x-office-calendar-symbolic', 'Kalender', {style_class: 'notchline-card notchline-card-side'});
+        const {box} = card('x-office-calendar-symbolic', 'Calendar', {style_class: 'notchline-card notchline-card-side'});
         const body = new St.BoxLayout({style_class: 'notchline-calendar', vertical: true});
         const date = new St.BoxLayout({style_class: 'notchline-date'});
         this._day = label('', 'notchline-day');
@@ -252,15 +252,15 @@ export class NotchPanel {
             body.add_child(row);
             this._eventRows.push({row, marker, summary, time});
         }
-        this._noEvents = label('Tidak ada acara lagi hari ini', 'notchline-empty-hint');
+        this._noEvents = label('No more events today', 'notchline-empty-hint');
         body.add_child(this._noEvents);
         box.add_child(body);
         return box;
     }
 
     _buildShelf() {
-        const {box} = card('folder-symbolic', 'Rak', {style_class: 'notchline-card notchline-card-side'});
-        const hint = label('Seret file ke notch untuk menyimpannya di sini.', 'notchline-empty-hint');
+        const {box} = card('folder-symbolic', 'Shelf', {style_class: 'notchline-card notchline-card-side'});
+        const hint = label('Drop files on the notch to keep them here.', 'notchline-empty-hint');
         hint.clutter_text.line_wrap = true;
         hint.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
         box.add_child(hint);
