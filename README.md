@@ -1,13 +1,31 @@
 <p align="center">
-  <img src="extension/icons/notchline-symbol.svg" width="96" alt="Notchline logo">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-on-dark.png">
+    <img src="assets/logo-on-light.png" width="291" alt="Notchline">
+  </picture>
 </p>
 
-# Notchline
+<p align="center">
+  A notch-style notification layer for GNOME, written in Rust.
+</p>
 
-A notch-style notification layer for GNOME, written in Rust.
+<p align="center">
+  <img src="https://img.shields.io/badge/GNOME_Shell-46-4A86CF?logo=gnome&logoColor=white" alt="GNOME Shell 46">
+  <img src="https://img.shields.io/badge/Rust-2024-000000?logo=rust" alt="Rust 2024">
+  <img src="https://img.shields.io/badge/license-GPL--2.0--or--later-2DD4BF" alt="License: GPL-2.0-or-later">
+</p>
 
 Notifications appear as a pill at the top center of the screen that expands
 when something arrives and shrinks back to a small notch afterwards.
+
+## Features
+
+- **Notifications in the notch:** `notify-send` and app notifications, plus `notchline show` from the CLI.
+- **Full panel:** pull the notch down for music controls, the calendar and coding agent sessions.
+- **System statuses:** battery level on charging, upcoming meetings and a focus timer.
+- **Coding agents:** live progress of Claude Code and OpenCode, with permission requests you can answer from the notch.
+- **Liquid motion:** a drip animation and springs behind every movement, tunable in the config.
+- **Preferences window:** every setting in the GNOME Extensions app, saved to `~/.config/notchline/config.toml`.
 
 ## How it works
 
@@ -141,5 +159,10 @@ and `notchline show ...`.
 After changing the daemon, reinstall it and restart the running instance:
 
 ```bash
-cargo install --path daemon && pkill -f "notchline daemon"
+cargo install --path daemon && pkill -f '^.*/notchline daemon$'
 ```
+
+## License
+
+Notchline is free software, released under the
+[GNU General Public License v2.0 or later](LICENSE).
