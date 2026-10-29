@@ -262,8 +262,9 @@ export default class NotchlinePreferences extends ExtensionPreferences {
         }));
     }
 
+    // Descriptions are plain text; Adwaita would parse them as Pango markup
     _group(page, title, description = '') {
-        const group = new Adw.PreferencesGroup({title, description});
+        const group = new Adw.PreferencesGroup({title, description: GLib.markup_escape_text(description, -1)});
         page.add(group);
         return group;
     }
@@ -275,7 +276,7 @@ export default class NotchlinePreferences extends ExtensionPreferences {
 
         if (this._error) {
             const group = this._group(page, 'Daemon tidak terhubung',
-                `Pengaturan tidak bisa dibaca atau disimpan. Jalankan notchline install-service, lalu buka lagi.\n${GLib.markup_escape_text(this._error, -1)}`);
+                `Pengaturan tidak bisa dibaca atau disimpan. Jalankan notchline install-service, lalu buka lagi.\n${this._error}`);
             group.add_css_class('error');
         }
 
