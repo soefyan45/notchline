@@ -8,6 +8,11 @@ idle_visible = true
 # Hide the idle notch and reveal it when the pointer hits the top center edge
 # (overrides idle_visible while idle)
 reveal_on_hover = true
+# Open the notch in full by resting the pointer on it ("hover") or by clicking it ("click")
+open_on = "hover"
+# Close the opened notch this many milliseconds after the pointer leaves it;
+# 0 keeps it open until you click elsewhere
+auto_close_ms = 0
 # "menyatu" grows out of the top edge with concave corners,
 # "pulau" floats below it as a separate pill (uses top_offset)
 style = "menyatu"

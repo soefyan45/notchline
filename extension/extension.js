@@ -85,6 +85,8 @@ const DEFAULT_CONFIG = {
     pill: {
         idle_visible: true,
         reveal_on_hover: true,
+        open_on: 'hover',
+        auto_close_ms: 0,
         style: 'menyatu',
         theme: 'default',
         idle_width: 200,
@@ -758,8 +760,10 @@ class Pill {
         this._clearHoverTimeout();
         if (this._atEdge || this._overBody) {
             this._setHover(true, this._hoverOpen);
-            // Open the full notification after the pointer rests on the notch
-            if (this._overBody && !this._hoverOpen && !this._hoverOpenBlocked) {
+            // Open the full notification after the pointer rests on the notch, unless
+            // opening is left to a click
+            const byHover = this._config.pill.open_on !== 'click';
+            if (byHover && this._overBody && !this._hoverOpen && !this._hoverOpenBlocked) {
                 this._hoverTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, HOVER_OPEN_DELAY_MS, () => {
                     this._hoverTimeoutId = 0;
                     this._setHover(true, true);
@@ -768,10 +772,15 @@ class Pill {
             }
             return;
         }
-        // Grace period so moving from the edge onto the notch doesn't flicker
+        // Grace period so moving from the edge onto the notch doesn't flicker; with auto
+        // close on, an opened notch waits that long and then closes as well
         this._hoverOpenBlocked = false;
-        this._hoverTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, REVEAL_HIDE_DELAY_MS, () => {
+        const autoClose = (this.open || this._hoverOpen) ? this._config.pill.auto_close_ms : 0;
+        this._hoverTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, Math.max(autoClose, REVEAL_HIDE_DELAY_MS), () => {
             this._hoverTimeoutId = 0;
+            // Not close(): coming back should open it by hover again
+            if (autoClose && this.open)
+                this._setOpen(false);
             this._setHover(false, false);
             return GLib.SOURCE_REMOVE;
         });
@@ -900,6 +909,10 @@ class Pill {
             this._hoverOpen = false;
             this._hoverOpenBlocked = !open;
             this._setOpen(open);
+        } else if (this._config.pill.open_on === 'click' && !['full', 'panel'].includes(this._shownMode)) {
+            // Opening is left to a click: open the notch instead of activating
+            this._hoverOpenBlocked = false;
+            this._setOpen(true);
         } else if (this._shownMode !== 'panel') {
             // A click on the panel's background does nothing; elsewhere it activates
             this._hoverOpen = false;
@@ -1573,6 +1586,7 @@ export default class NotchlineExtension extends Extension {
             battery: this._battery,
             calendar: this._calendar,
             onSettings: this._openSettings,
+            onHide: () => this._setHidden(true),
             onResize: () => this._pill?.refit(),
             agents: this._agentsPage.actor,
         });

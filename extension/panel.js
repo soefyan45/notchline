@@ -74,7 +74,7 @@ export function eventTime(event, now, soon) {
 }
 
 export class NotchPanel {
-    constructor(media, {battery, calendar, onSettings, onResize, agents}) {
+    constructor(media, {battery, calendar, onSettings, onHide, onResize, agents}) {
         this._media = media;
         this._battery = battery;
         this._calendar = calendar;
@@ -85,7 +85,7 @@ export class NotchPanel {
         this._tickId = 0;
 
         this.actor = new St.BoxLayout({style_class: 'notchline-panel', vertical: true, x_expand: true});
-        this.actor.add_child(this._buildHeader(onSettings));
+        this.actor.add_child(this._buildHeader(onSettings, onHide));
 
         this._pages = {
             home: this._buildHome(),
@@ -125,7 +125,7 @@ export class NotchPanel {
         }
     }
 
-    _buildHeader(onSettings) {
+    _buildHeader(onSettings, onHide) {
         const header = new St.BoxLayout({style_class: 'notchline-panel-header'});
         const tabs = new St.BoxLayout({style_class: 'notchline-tabs', x_expand: true});
         this._tabs = {};
@@ -156,7 +156,15 @@ export class NotchPanel {
             can_focus: true,
         });
         settings.connect('clicked', () => onSettings());
+        // Hide the notch until something new arrives
+        const hide = new St.Button({
+            style_class: 'notchline-icon-button',
+            child: icon('view-conceal-symbolic', 'notchline-settings-icon'),
+            can_focus: true,
+        });
+        hide.connect('clicked', () => onHide());
         status.add_child(this._batteryBox);
+        status.add_child(hide);
         status.add_child(settings);
         header.add_child(status);
         return header;

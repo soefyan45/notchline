@@ -340,11 +340,21 @@ export default class NotchlinePreferences extends ExtensionPreferences {
             ['sayap', 'Wings', `Info on the left and right of the notch. ${COMING_SOON}`, false],
         ]);
 
+        const opening = this._group(page, 'Open and close',
+            'How the notch opens in full, and when it goes away again.');
+        this._choiceRows(opening, ['pill', 'open_on'], [
+            ['hover', 'Open on hover', 'Resting the pointer on the notch opens it'],
+            ['click', 'Open on click', 'Hovering only shows the notch; a click opens it'],
+        ]);
+        this._spinRow(opening, ['pill', 'auto_close_ms'], 'Auto close',
+            'Milliseconds after the pointer leaves the notch. 0 keeps it open until you click elsewhere.',
+            {lower: 0, upper: 10000, step: 500});
+        this._switchRow(opening, ['pill', 'reveal_on_hover'], 'Hide when idle',
+            'The notch stays hidden until the pointer touches the top center edge. The hide button in the panel hides it until something new arrives.');
+        this._switchRow(opening, ['pill', 'idle_visible'], 'Show when idle',
+            'Used when "Hide when idle" is off.');
+
         const display = this._group(page, 'Display');
-        this._switchRow(display, ['pill', 'reveal_on_hover'], 'Show when the pointer moves up',
-            'The notch stays hidden when idle and appears when the pointer touches the top center edge.');
-        this._switchRow(display, ['pill', 'idle_visible'], 'Show when idle',
-            'Used when "Show when the pointer moves up" is off.');
         this._spinRow(display, ['pill', 'idle_width'], 'Idle notch width', 'Pixels. The compact status expands from this size.',
             {lower: 80, upper: 600});
         this._spinRow(display, ['pill', 'idle_height'], 'Notch height', 'Pixels.', {lower: 16, upper: 80});

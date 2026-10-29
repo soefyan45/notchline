@@ -161,6 +161,11 @@ struct PillConfig {
     idle_visible: bool,
     /// Hide the idle notch until the pointer reaches the top center edge
     reveal_on_hover: bool,
+    /// How the notch opens in full: "hover" (resting the pointer on it) or "click"
+    open_on: String,
+    /// Close the opened notch this long after the pointer leaves it; 0 keeps it open
+    /// until a click elsewhere
+    auto_close_ms: u64,
     /// "menyatu" grows out of the top edge, "pulau" floats below it
     style: String,
     /// Color theme of the notch, the panel and the preferences: "default" or "te"
@@ -253,6 +258,8 @@ impl Default for PillConfig {
         Self {
             idle_visible: true,
             reveal_on_hover: true,
+            open_on: "hover".into(),
+            auto_close_ms: 0,
             style: "menyatu".into(),
             theme: "default".into(),
             idle_width: 200,
