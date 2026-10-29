@@ -34,7 +34,7 @@
 }
 
 .notchline-mono {
-  font-family: "Geist Mono", "JetBrains Mono", monospace;
+  font-family: Geist Mono, JetBrains Mono, monospace;
 }
 
 /* Full notification */
@@ -64,9 +64,306 @@
   font-size: 13px;
 }
 
+/* Album art: a rounded background image, or the design's gradient without one */
+.notchline-art {
+  background-color: #1B1F28;
+}
+
+.notchline-art-empty {
+  background-gradient-direction: diagonal;
+  background-gradient-start: #F59E0B;
+  background-gradient-end: #9A3412;
+}
+
+.notchline-art-small {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+}
+
+.notchline-art-large {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+}
+
+.notchline-visualizer {
+  spacing: 2px;
+}
+
+.notchline-visualizer-bar {
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background-color: #2DD4BF;
+}
+
+/* Full panel (Pego "Notch terbuka") */
+.notchline-panel {
+  spacing: 20px;
+}
+
+.notchline-panel-header {
+  height: 32px;
+}
+
+.notchline-tabs {
+  spacing: 4px;
+}
+
+.notchline-tab {
+  height: 28px;
+  padding: 0 12px 0 10px;
+  border-radius: 14px;
+}
+
+.notchline-tab:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.notchline-tab:checked {
+  background-color: #1B1F28;
+}
+
+.notchline-tab-content {
+  spacing: 6px;
+}
+
+.notchline-tab-icon {
+  icon-size: 16px;
+  color: #9AA1AF;
+}
+
+.notchline-tab-label {
+  color: #9AA1AF;
+  font-family: Inter, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.notchline-tab:checked .notchline-tab-icon,
+.notchline-tab:checked .notchline-tab-label {
+  color: #ECEEF2;
+}
+
+.notchline-panel-status {
+  spacing: 12px;
+}
+
+.notchline-battery {
+  spacing: 6px;
+}
+
+.notchline-battery-icon {
+  icon-size: 18px;
+  color: #ECEEF2;
+}
+
+.notchline-battery-label {
+  color: #ECEEF2;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.notchline-icon-button {
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.notchline-icon-button:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.notchline-settings-icon {
+  icon-size: 16px;
+  color: #9AA1AF;
+}
+
+.notchline-widgets {
+  spacing: 16px;
+}
+
+.notchline-card {
+  background-color: #13161D;
+  border: 1px solid #2A2F3A;
+  border-radius: 16px;
+  padding: 16px;
+  spacing: 16px;
+}
+
+.notchline-card-side {
+  width: 212px;
+}
+
+.notchline-card-header {
+  spacing: 8px;
+}
+
+.notchline-card-icon {
+  icon-size: 16px;
+  color: #9AA1AF;
+}
+
+.notchline-card-title {
+  color: #9AA1AF;
+  font-family: Inter, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+}
+
+.notchline-music {
+  spacing: 14px;
+}
+
+.notchline-song {
+  spacing: 12px;
+}
+
+.notchline-song-title {
+  color: #ECEEF2;
+  font-family: Manrope, Inter, sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.notchline-song-artist {
+  color: #9AA1AF;
+  font-family: Inter, sans-serif;
+  font-size: 13px;
+}
+
+.notchline-progress-box {
+  spacing: 6px;
+}
+
+.notchline-progress {
+  height: 4px;
+  border-radius: 2px;
+  background-color: #1B1F28;
+}
+
+.notchline-progress-fill {
+  border-radius: 2px;
+  background-color: #2DD4BF;
+}
+
+.notchline-time {
+  color: #9AA1AF;
+  font-size: 12px;
+}
+
+.notchline-controls {
+  spacing: 20px;
+}
+
+.notchline-media-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  background-color: #1B1F28;
+}
+
+.notchline-media-button:hover {
+  background-color: #2A2F3A;
+}
+
+.notchline-media-button:insensitive {
+  opacity: 0.4;
+}
+
+.notchline-media-icon {
+  icon-size: 16px;
+  color: #ECEEF2;
+}
+
+.notchline-media-main {
+  width: 44px;
+  height: 44px;
+  border-radius: 22px;
+  background-color: #ECEEF2;
+}
+
+.notchline-media-main:hover {
+  background-color: #FFFFFF;
+}
+
+.notchline-media-main .notchline-media-icon {
+  icon-size: 20px;
+  color: #000000;
+}
+
+.notchline-calendar {
+  spacing: 12px;
+}
+
+.notchline-date {
+  spacing: 8px;
+}
+
+.notchline-day {
+  color: #ECEEF2;
+  font-family: Manrope, Inter, sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.notchline-weekday {
+  color: #9AA1AF;
+  font-family: Inter, sans-serif;
+  font-size: 13px;
+  padding-bottom: 4px;
+}
+
+.notchline-event {
+  spacing: 10px;
+}
+
+.notchline-event-marker {
+  width: 3px;
+  border-radius: 2px;
+}
+
+.notchline-event-title {
+  color: #ECEEF2;
+  font-family: Inter, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.notchline-event-time {
+  color: #9AA1AF;
+  font-size: 12px;
+}
+
+.notchline-empty-page {
+  spacing: 8px;
+  padding: 24px 0;
+}
+
+.notchline-empty-icon {
+  icon-size: 32px;
+  color: #5B6270;
+}
+
+.notchline-empty-title {
+  color: #ECEEF2;
+  font-family: Inter, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.notchline-empty-hint {
+  color: #9AA1AF;
+  font-family: Inter, sans-serif;
+  font-size: 12px;
+}
+
 /* Status colors; kept last so they win over the defaults above */
 .notchline-accent { color: #2DD4BF; }
 .notchline-success { color: #4ADE80; }
 .notchline-warn { color: #FBBF24; }
 .notchline-danger { color: #F87171; }
 .notchline-muted { color: #9AA1AF; }
+.notchline-bg-accent { background-color: #2DD4BF; }
+.notchline-bg-warn { background-color: #FBBF24; }

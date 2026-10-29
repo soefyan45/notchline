@@ -82,6 +82,8 @@ struct PillConfig {
     idle_height: u32,
     expanded_width: u32,
     expanded_height: u32,
+    /// Width of the full panel opened by hovering or pulling the notch
+    panel_width: u32,
     top_offset: u32,
     radius: u32,
     background: String,
@@ -97,6 +99,8 @@ struct BehaviorConfig {
     hide_gnome_banners: bool,
     /// Show GNOME system notifications in the notch
     capture_system: bool,
+    /// Notchline icon in the top bar, with a menu
+    show_indicator: bool,
 }
 
 /// Liquid drop that reaches for the pointer (logical pixels)
@@ -167,6 +171,7 @@ impl Default for PillConfig {
             idle_height: 32,
             expanded_width: 420,
             expanded_height: 72,
+            panel_width: 840,
             top_offset: 4,
             radius: 20,
             background: "#000000".into(),
@@ -182,6 +187,7 @@ impl Default for BehaviorConfig {
             timeout_ms: 4000,
             hide_gnome_banners: true,
             capture_system: true,
+            show_indicator: true,
         }
     }
 }

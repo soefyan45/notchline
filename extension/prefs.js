@@ -299,6 +299,8 @@ export default class NotchlinePreferences extends ExtensionPreferences {
             {lower: 200, upper: 1000});
         this._spinRow(display, ['pill', 'expanded_height'], 'Tinggi minimum notifikasi penuh', 'Piksel.',
             {lower: 32, upper: 400});
+        this._spinRow(display, ['pill', 'panel_width'], 'Lebar panel', 'Piksel, panel yang terbuka saat notch di-hover atau ditarik.',
+            {lower: 400, upper: 1600, step: 10});
         this._spinRow(display, ['pill', 'radius'], 'Sudut', 'Piksel, dibatasi setengah tinggi notch.',
             {lower: 0, upper: 60});
         this._spinRow(display, ['pill', 'top_offset'], 'Jarak dari tepi atas', 'Piksel, hanya untuk gaya Pulau melayang.',
@@ -308,6 +310,8 @@ export default class NotchlinePreferences extends ExtensionPreferences {
             {lower: 0, upper: 1, step: 0.05, digits: 2});
 
         const behavior = this._group(page, 'Perilaku');
+        this._switchRow(behavior, ['behavior', 'show_indicator'], 'Ikon di top bar',
+            'Akses cepat untuk membuka panel, jeda notifikasi notch, dan pengaturan.');
         this._switchRow(behavior, ['behavior', 'capture_system'], 'Tampilkan notifikasi sistem',
             'Notifikasi aplikasi dan notify-send muncul di notch.');
         this._switchRow(behavior, ['behavior', 'hide_gnome_banners'], 'Sembunyikan banner GNOME',

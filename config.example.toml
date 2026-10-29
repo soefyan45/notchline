@@ -17,6 +17,8 @@ idle_height = 32
 # Width and minimum height of a notification opened in full (logical pixels)
 expanded_width = 420
 expanded_height = 72
+# Width of the full panel opened by hovering or pulling the notch
+panel_width = 840
 # Gap between the top of the screen and the notch (style = "pulau" only)
 top_offset = 4
 # Corner radius, clamped to half the height
@@ -34,6 +36,8 @@ timeout_ms = 4000
 hide_gnome_banners = true
 # Show GNOME system notifications (notify-send, apps) in the notch
 capture_system = true
+# Notchline icon in the top bar, with a menu to open the panel, pause and settings
+show_indicator = true
 
 [drop]
 # Liquid drop that reaches for the pointer near the top center (logical pixels)

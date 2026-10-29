@@ -1,5 +1,6 @@
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
+import Graphene from 'gi://Graphene';
 import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
 import St from 'gi://St';
@@ -7,6 +8,11 @@ import St from 'gi://St';
 import {Extension, InjectionManager} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
+import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+
+import {MediaWatcher} from './media.js';
+import {NotchPanel, setArt} from './panel.js';
 
 const BUS_NAME = 'io.github.soefyan45.Notchline';
 const OBJECT_PATH = '/io/github/soefyan45/Notchline';
@@ -67,6 +73,7 @@ const DEFAULT_CONFIG = {
         idle_height: 32,
         expanded_width: 420,
         expanded_height: 72,
+        panel_width: 840,
         top_offset: 4,
         radius: 20,
         background: '#000000',
@@ -77,6 +84,7 @@ const DEFAULT_CONFIG = {
         timeout_ms: 4000,
         hide_gnome_banners: true,
         capture_system: true,
+        show_indicator: true,
     },
     drop: {
         enabled: true,
@@ -136,6 +144,15 @@ const NEAR_PX = 2;
 const COMPACT_PADDING = 14;
 const DETAIL_PADDING = [14, 18];
 const COMPACT_MAX_WIDTH = 480;
+// Full panel: padding [top, right, bottom, left], corner radius and room left on the
+// sides of a narrow screen (logical px)
+const PANEL_PADDING = [8, 24, 24, 24];
+const PANEL_RADIUS = 32;
+const PANEL_MARGIN = 16;
+// Music visualizer in the compact line: an animation, not real audio levels
+const VISUALIZER_BARS = 4;
+const VISUALIZER_MS = 160;
+const VISUALIZER_HEIGHT = [3, 14];
 // Design token names a status may use; each maps to a notchline-<name> CSS class
 const COLORS = ['accent', 'success', 'warn', 'danger', 'muted'];
 
@@ -214,10 +231,12 @@ function setColorClass(actor, color) {
 }
 
 class Pill {
-    constructor(config, {onClick, onPull}) {
+    constructor(config, {onClick, panel}) {
         this._config = config;
         this._onClick = onClick;
-        this._onPull = onPull;
+        this._panel = panel;
+        this._activity = null;
+        this._visualizerId = 0;
         this.expanded = false;
         this.open = false;
         this._collapsing = false;
@@ -275,6 +294,12 @@ class Pill {
             y_align: Clutter.ActorAlign.CENTER,
         });
         const lead = new St.BoxLayout({style_class: 'notchline-lead'});
+        this._leadArt = new St.Widget({
+            style_class: 'notchline-art notchline-art-small',
+            visible: false,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        lead.add_child(this._leadArt);
         this._leadIcon = new St.Icon({
             style_class: 'notchline-lead-icon',
             y_align: Clutter.ActorAlign.CENTER,
@@ -295,6 +320,22 @@ class Pill {
         lead.add_child(this._leadText);
         this._compactRow.add_child(lead);
         this._compactRow.add_child(this._trailText);
+        this._visualizer = new St.BoxLayout({
+            style_class: 'notchline-visualizer',
+            visible: false,
+            x_expand: true,
+            x_align: Clutter.ActorAlign.END,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        for (let i = 0; i < VISUALIZER_BARS; i++) {
+            // Bars move by scaling, which needs no relayout
+            this._visualizer.add_child(new St.Widget({
+                style_class: 'notchline-visualizer-bar',
+                y_align: Clutter.ActorAlign.CENTER,
+                pivot_point: new Graphene.Point({x: 0.5, y: 0.5}),
+            }));
+        }
+        this._compactRow.add_child(this._visualizer);
 
         // Detail layer: the full notification, wrapped
         this._detail = new St.BoxLayout({
@@ -326,6 +367,7 @@ class Pill {
 
         this._content.add_child(this._compactRow);
         this._content.add_child(this._detail);
+        this._content.add_child(panel.actor);
         this._showLayer('compact');
 
         this.actor.connect('button-press-event', (_actor, event) => this._onPress(event));
@@ -372,10 +414,42 @@ class Pill {
         }
     }
 
-    // spec: {icon, iconColor, text, trail, trailColor, trailMono, title, body}
+    // spec: {icon, iconColor, art, text, trail, trailColor, trailMono, visualizer, title, body}
     setItem(spec) {
         this._spec = spec;
+        this._render(spec);
+    }
+
+    // Something ongoing, like music, shown compact whenever no item is
+    setActivity(spec) {
+        this._activity = spec;
+        if (this.expanded)
+            return;
+        if (spec)
+            this._render(spec);
+        if (!this._collapsing)
+            this._apply(true);
+    }
+
+    openPanel() {
+        this._hoverOpenBlocked = false;
+        this._setOpen(true);
+    }
+
+    close() {
+        this._hoverOpen = false;
+        this._hoverOpenBlocked = true;
+        this._setOpen(false);
+    }
+
+    _render(spec) {
         const icon = spec.icon ?? new Gio.ThemedIcon({name: 'dialog-information-symbolic'});
+        this._leadArt.visible = !!spec.art;
+        this._leadIcon.visible = !spec.art;
+        if (spec.art)
+            setArt(this._leadArt, spec.art);
+        this._visualizer.visible = !!spec.visualizer;
+        this._runVisualizer(!!spec.visualizer);
 
         this._leadIcon.gicon = icon;
         setColorClass(this._leadIcon, spec.iconColor);
@@ -401,6 +475,27 @@ class Pill {
         this._apply(true);
     }
 
+    _runVisualizer(run) {
+        if (run && !this._visualizerId) {
+            const [low, high] = VISUALIZER_HEIGHT;
+            this._visualizerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, VISUALIZER_MS, () => {
+                if (!this.actor.visible || !this._compactRow.visible)
+                    return GLib.SOURCE_CONTINUE;
+                for (const bar of this._visualizer.get_children()) {
+                    bar.ease({
+                        scale_y: (low + Math.random() * (high - low)) / high,
+                        duration: VISUALIZER_MS,
+                        mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
+                    });
+                }
+                return GLib.SOURCE_CONTINUE;
+            });
+        } else if (!run && this._visualizerId) {
+            GLib.source_remove(this._visualizerId);
+            this._visualizerId = 0;
+        }
+    }
+
     // Re-fit the notch after the shown item changed
     refresh() {
         if (!this._collapsing)
@@ -410,6 +505,12 @@ class Pill {
     collapse(onDone) {
         this.expanded = false;
         this._collapsing = true;
+        if (this._activity) {
+            // Back to the ongoing activity, faded in like a new line
+            this._content.remove_all_transitions();
+            this._content.opacity = 0;
+            this._render(this._activity);
+        }
         this._apply(true, () => {
             this._collapsing = false;
             onDone?.();
@@ -420,9 +521,10 @@ class Pill {
     }
 
     _mode() {
-        if (this.open || (this._hoverOpen && this.expanded && this._spec?.body))
-            return 'full';
-        if (this.expanded)
+        // Opened by a pull or a resting pointer: a notification shows in full, else the panel
+        if (this.open || this._hoverOpen)
+            return this.expanded && this._spec?.body ? 'full' : 'panel';
+        if (this.expanded || this._activity)
             return 'compact';
         return this._idleShown() ? 'idle' : 'hidden';
     }
@@ -479,6 +581,34 @@ class Pill {
 
         if (this._still && !this._pointerActive && !this._drag)
             this._ticker.stop();
+    }
+
+    // The panel and a full notification size to their content, which is only measured
+    // right once laid out and can change on its own (music starts, events load); measure
+    // again when the main loop is idle, after the frame that lays it out
+    refit() {
+        if (this._refitId)
+            return;
+        this._refitId = GLib.idle_add(GLib.PRIORITY_LOW, () => {
+            this._refitId = 0;
+            this._refit();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _refit() {
+        const mode = this._shownMode;
+        if ((mode !== 'panel' && mode !== 'full') || this._drag?.active || this._mode() !== mode)
+            return;
+        // Measuring mid-relayout gives stale sizes (and Clutter warnings); wait for it
+        const layer = mode === 'panel' ? this._panel.actor : this._detail;
+        if (!layer.has_allocation())
+            return;
+        const {height} = this._bodySize(mode);
+        if (Math.abs(height - this._height.target) >= 1) {
+            this._height.target = height;
+            this._wake();
+        }
     }
 
     _flushCallbacks() {
@@ -606,7 +736,7 @@ class Pill {
             return Clutter.EVENT_PROPAGATE;
 
         const [x, y] = event.get_coords();
-        this._drag = {startX: x, startY: y, fromOpen: this._mode() === 'full', active: false};
+        this._drag = {startX: x, startY: y, fromOpen: ['full', 'panel'].includes(this._mode()), active: false};
         this._drag.progress = this._drag.fromOpen ? 1 : 0;
         this._grab = global.stage.grab(this.actor);
         return Clutter.EVENT_STOP;
@@ -641,13 +771,13 @@ class Pill {
         }
 
         if (!drag.closed) {
-            if (!this.expanded)
-                this._onPull();
-            drag.closed = this._bodySize(this.expanded ? 'compact' : 'idle');
-            drag.full = this._bodySize('full');
+            const target = this.expanded && this._spec?.body ? 'full' : 'panel';
+            drag.closed = this._bodySize(this.expanded || this._activity ? 'compact' : 'idle');
+            drag.full = this._bodySize(target);
             this._content.remove_all_transitions();
             this._contentPending = false;
-            this._showLayer('detail');
+            this._showLayer(target === 'full' ? 'detail' : 'panel');
+            this._panel.setActive(target === 'panel');
             this._styleBody();
             this._content.opacity = drag.fromOpen ? 255 : 0;
         }
@@ -686,7 +816,8 @@ class Pill {
             this._hoverOpen = false;
             this._hoverOpenBlocked = !open;
             this._setOpen(open);
-        } else {
+        } else if (this._shownMode !== 'panel') {
+            // A click on the panel's background does nothing; elsewhere it activates
             this._hoverOpen = false;
             this._hoverOpenBlocked = true;
             if (this.open)
@@ -701,6 +832,11 @@ class Pill {
         this._layer = layer;
         this._compactRow.visible = layer === 'compact';
         this._detail.visible = layer === 'detail';
+        this._panel.actor.visible = layer === 'panel';
+    }
+
+    _radius() {
+        return (this._layer === 'panel' ? PANEL_RADIUS : this._config.pill.radius) * scaleFactor();
     }
 
     // Center of the notch, moved while it is slid sideways
@@ -738,6 +874,16 @@ class Pill {
                     Math.min(natural + 2 * DETAIL_PADDING[0] * scale, monitor.height * FULL_MAX_HEIGHT)),
             };
         }
+        if (mode === 'panel') {
+            const [top, right, bottom, left] = PANEL_PADDING;
+            const width = Math.min(p.panel_width * scale, monitor.width - 2 * PANEL_MARGIN * scale);
+            // Measure only when laid out (a fresh, unallocated panel measures wrong and makes
+            // Clutter warn); otherwise reuse the last good height, which refit() corrects
+            const inner = width - (left + right) * scale;
+            if (this._panelSize?.inner !== inner || this._panel.actor.has_allocation())
+                this._panelSize = {inner, height: this._panel.actor.get_preferred_height(inner)[1]};
+            return {width, height: this._panelSize.height + (top + bottom) * scale};
+        }
         if (mode === 'compact') {
             // Fit the line, between the idle notch and a banner
             const [, natural] = this._compactRow.get_preferred_width(-1);
@@ -758,7 +904,7 @@ class Pill {
             return 0;
 
         const t = Math.abs(dx);
-        const radius = Math.min(this._config.pill.radius * scaleFactor(), height / 2, half);
+        const radius = Math.min(this._radius(), height / 2, half);
         if (t <= half - radius)
             return height;
         if (t <= half)
@@ -843,7 +989,7 @@ class Pill {
             cr.fill();
         } else if (width > 0 && height > 0) {
             const left = (boxWidth - width) / 2;
-            const radius = Math.min(p.radius * scaleFactor(), height / 2, width / 2);
+            const radius = Math.min(this._radius(), height / 2, width / 2);
             cr.newSubPath();
             cr.arc(left + width - radius, radius, radius, -0.5 * Math.PI, 0);
             cr.arc(left + width - radius, height - radius, radius, 0, 0.5 * Math.PI);
@@ -856,9 +1002,10 @@ class Pill {
     }
 
     _styleBody() {
-        const [top, side] = this._layer === 'detail' ? DETAIL_PADDING : [0, COMPACT_PADDING];
+        const [vertical, side] = this._layer === 'detail' ? DETAIL_PADDING : [0, COMPACT_PADDING];
+        const padding = this._layer === 'panel' ? PANEL_PADDING : [vertical, side, vertical, side];
         // CSS lengths are scaled by St, so this stays in logical pixels
-        this._body.style = `padding: ${top}px ${side}px;`;
+        this._body.style = `padding: ${padding.map(value => `${value}px`).join(' ')};`;
     }
 
     _apply(animate, onComplete) {
@@ -873,7 +1020,8 @@ class Pill {
             return;
         }
 
-        const layer = {full: 'detail', compact: 'compact'}[mode] ?? null;
+        this._panel.setActive(mode === 'panel');
+        const layer = {full: 'detail', compact: 'compact', panel: 'panel'}[mode] ?? null;
         if (layer && layer !== this._layer) {
             // Swap layers while hidden, then fade the new one in once the shape arrives
             this._content.remove_all_transitions();
@@ -909,10 +1057,15 @@ class Pill {
         }
         if (onComplete)
             this._settleCallbacks.push(onComplete);
+        if (layer === 'panel' || layer === 'detail')
+            this.refit();
         this._wake();
     }
 
     destroy() {
+        if (this._refitId)
+            GLib.source_remove(this._refitId);
+        this._runVisualizer(false);
         GLib.source_remove(this._pollId);
         this._ticker.stop();
         this._clearHoverTimeout();
@@ -934,19 +1087,31 @@ export default class NotchlineExtension extends Extension {
         this._collapsing = false;
         this._timeoutId = 0;
 
-        this._lastContent = null;
+        this._paused = false;
+        this._activityKey = null;
 
+        this._media = new MediaWatcher();
+        this._panel = new NotchPanel(this._media, {
+            onSettings: () => {
+                this._pill.close();
+                this.openPreferences();
+            },
+            onResize: () => this._pill?.refit(),
+        });
         this._pill = new Pill(this._config, {
             onClick: () => this._onPillClicked(),
-            onPull: () => this._onPull(),
+            panel: this._panel,
         });
+        this._media.connectObject('changed', () => this._updateActivity(), this);
+        this._updateActivity();
+        this._syncIndicator();
 
         this._injections = new InjectionManager();
         const ext = this;
         this._injections.overrideMethod(MessageTray.MessageTray.prototype, '_showNotification',
             original => function () {
                 const {hide_gnome_banners: hide, capture_system: capture} = ext._config.behavior;
-                if (!hide || !capture) {
+                if (!hide || !capture || ext._paused) {
                     original.call(this);
                     return;
                 }
@@ -984,8 +1149,55 @@ export default class NotchlineExtension extends Extension {
         this._current = null;
         this._queue = null;
 
+        this._indicator?.destroy();
+        this._indicator = null;
+        this._media.disconnectObject(this);
         this._pill.destroy();
         this._pill = null;
+        this._panel.destroy();
+        this._panel = null;
+        this._media.destroy();
+        this._media = null;
+    }
+
+    // Playing music stays in the notch as a compact line: cover art and a visualizer
+    _updateActivity() {
+        const player = this._media.current;
+        const playing = player?.playing ? player : null;
+        const key = playing ? `${playing.busName}|${playing.artUrl}` : null;
+        if (key === this._activityKey)
+            return;
+        this._activityKey = key;
+        this._pill.setActivity(playing && {
+            icon: new Gio.ThemedIcon({name: 'audio-x-generic-symbolic'}),
+            art: playing.artUrl || null,
+            visualizer: true,
+        });
+    }
+
+    _syncIndicator() {
+        const show = this._config.behavior.show_indicator;
+        if (!show) {
+            this._indicator?.destroy();
+            this._indicator = null;
+            return;
+        }
+        if (this._indicator)
+            return;
+
+        // Top bar icon (Pego "Ikon di menu bar"): open the panel, pause, settings
+        this._indicator = new PanelMenu.Button(0.0, 'Notchline', false);
+        this._indicator.add_child(new St.Icon({gicon: this._logoIcon(), style_class: 'system-status-icon'}));
+        const menu = this._indicator.menu;
+        menu.addAction('Buka panel', () => this._pill.openPanel());
+        const pause = new PopupMenu.PopupSwitchMenuItem('Jeda notifikasi notch', this._paused);
+        pause.connect('toggled', (_item, state) => {
+            this._paused = state;
+        });
+        menu.addMenuItem(pause);
+        menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        menu.addAction('Pengaturan', () => this.openPreferences());
+        Main.panel.addToStatusArea(this.uuid, this._indicator);
     }
 
     _onProxyReady(proxy, error) {
@@ -1034,6 +1246,7 @@ export default class NotchlineExtension extends Extension {
             return;
         this._config = mergeConfig(json);
         this._pill.setConfig(this._config);
+        this._syncIndicator();
     }
 
     _watchSource(source) {
@@ -1042,7 +1255,7 @@ export default class NotchlineExtension extends Extension {
     }
 
     _shouldCapture(notification) {
-        if (!this._config.behavior.capture_system || notification.acknowledged)
+        if (!this._config.behavior.capture_system || this._paused || notification.acknowledged)
             return false;
 
         // Same filters GNOME applies before showing a banner
@@ -1063,8 +1276,7 @@ export default class NotchlineExtension extends Extension {
         if (this._current?.notification === notification) {
             // Updated while shown: refresh text and extend the display time
             notification.acknowledged = true;
-            this._lastContent = this._contentFor(this._current);
-            this._pill.setItem(this._lastContent);
+            this._pill.setItem(this._contentFor(this._current));
             this._pill.refresh();
             this._scheduleHide(this._current.timeout);
             return;
@@ -1073,7 +1285,12 @@ export default class NotchlineExtension extends Extension {
             return;
 
         const item = {notification, timeout: this._config.behavior.timeout_ms};
-        item.destroyId = notification.connect('destroy', () => this._removeItem(i => i === item));
+        item.destroyId = notification.connect('destroy', () => {
+            // Already disposed: forget it so nothing touches it again
+            item.destroyId = 0;
+            item.notification = null;
+            this._removeItem(i => i === item);
+        });
         this._enqueue(item);
     }
 
@@ -1096,6 +1313,8 @@ export default class NotchlineExtension extends Extension {
     }
 
     _enqueue(item) {
+        if (this._paused && !item.notification)
+            return;
         this._queue.push(item);
         if (!this._current)
             this._showNext();
@@ -1109,8 +1328,7 @@ export default class NotchlineExtension extends Extension {
         this._current = item;
         if (item.notification)
             item.notification.acknowledged = true;
-        this._lastContent = this._contentFor(item);
-        this._pill.setItem(this._lastContent);
+        this._pill.setItem(this._contentFor(item));
         this._pill.expand();
         this._scheduleHide(item.timeout);
     }
@@ -1168,12 +1386,6 @@ export default class NotchlineExtension extends Extension {
             item.notification.disconnect(item.destroyId);
             item.destroyId = 0;
         }
-    }
-
-    _onPull() {
-        // Pulling the idle notch shows the last notification again
-        if (!this._current)
-            this._pill.setItem(this._lastContent ?? {text: 'No notifications', icon: this._logoIcon()});
     }
 
     _logoIcon() {
