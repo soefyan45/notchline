@@ -728,6 +728,10 @@
   color: #F5F5F5;
 }
 
+.notchline-te-key:insensitive .notchline-te-key-icon {
+  color: #4D4D4D;
+}
+
 .notchline-te-key:active .notchline-te-key-icon {
   color: #0F0E12;
 }
@@ -891,6 +895,7 @@
 
 .notchline-te-controls {
   padding-bottom: 2px;
+  spacing: 24px;
 }
 
 .notchline-te-play {

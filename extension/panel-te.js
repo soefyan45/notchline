@@ -267,18 +267,16 @@ export class TePanel {
         [...this._musicScreen, this._musicEmpty].forEach(actor => display.add_child(actor));
         box.add_child(display);
 
-        this._controls = new St.BoxLayout({style_class: 'notchline-te-controls'});
-        this._prev = key('PREV', '05', 'notchline-te-key-media');
+        this._controls = new St.BoxLayout({style_class: 'notchline-te-controls', x_align: Clutter.ActorAlign.CENTER});
+        this._prev = iconKey('media-skip-backward-symbolic');
         this._prev.connect('clicked', () => this._media.current?.previous());
         this._playPause = new St.Button({
             style_class: 'notchline-te-play',
             child: icon('media-playback-pause-symbolic', 'notchline-te-play-icon'),
             can_focus: true,
-            x_expand: true,
-            x_align: Clutter.ActorAlign.CENTER,
         });
         this._playPause.connect('clicked', () => this._media.current?.playPause());
-        this._next = key('NEXT', '06', 'notchline-te-key-media');
+        this._next = iconKey('media-skip-forward-symbolic');
         this._next.connect('clicked', () => this._media.current?.next());
         [this._prev, this._playPause, this._next].forEach(actor => this._controls.add_child(actor));
         box.add_child(this._controls);
@@ -433,7 +431,7 @@ export class TeAgentsPage {
 
         const footer = new St.BoxLayout({style_class: 'notchline-te-agents-footer'});
         this._count = label('', 'notchline-te-hint', {x_expand: true, y_align: Clutter.ActorAlign.CENTER});
-        this._settings = key('AGENT SOURCES', '', 'notchline-te-key-wide');
+        this._settings = iconKey('emblem-system-symbolic');
         this._settings.connect('clicked', () => onSettings());
         footer.add_child(this._count);
         footer.add_child(this._settings);
@@ -463,7 +461,6 @@ export class TeAgentsPage {
         });
         if (side.get_n_children())
             this._cards.add_child(side);
-        this._settings.child.get_child_at_index(1).text = pad(this._nextKey);
     }
 
     // Keys are numbered in reading order across the page, like the design
