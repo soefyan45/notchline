@@ -677,7 +677,7 @@
  *   yellow #FAB413. Text in Noto Sans JP, readouts are dot-matrix (dotmatrix.js).
  */
 .notchline-te-panel {
-  spacing: 16px;
+  spacing: 10px;
   font-family: Noto Sans JP, Noto Sans CJK JP, sans-serif;
 }
 
@@ -687,18 +687,17 @@
 
 .notchline-te-tabs,
 .notchline-te-widgets {
-  spacing: 8px;
+  spacing: 6px;
 }
 
 .notchline-te-status {
-  spacing: 12px;
+  spacing: 6px;
 }
 
 /* TE key */
 .notchline-te-key {
-  width: 104px;
-  height: 48px;
-  padding: 6px 8px;
+  height: 30px;
+  padding: 0 10px;
   border-radius: 4px;
   background-color: #3B3B3D;
   box-shadow: 0 2px 0 0 #000000;
@@ -719,12 +718,16 @@
 }
 
 .notchline-te-key-square {
-  width: 48px;
+  width: 30px;
   padding: 0;
 }
 
+.notchline-te-key-cap {
+  spacing: 12px;
+}
+
 .notchline-te-key-icon {
-  icon-size: 20px;
+  icon-size: 15px;
   color: #F5F5F5;
 }
 
@@ -735,18 +738,17 @@
 .notchline-te-key:active .notchline-te-key-icon {
   color: #0F0E12;
 }
-.notchline-te-key-media { width: 80px; }
 
 .notchline-te-key-label {
   color: #F5F5F5;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
-  letter-spacing: 1.5px;
+  letter-spacing: 1.2px;
 }
 
 .notchline-te-key-number {
   color: #B2B2B2;
-  font-size: 15px;
+  font-size: 10px;
   font-weight: 300;
 }
 
@@ -762,12 +764,9 @@
 
 /* Battery readout */
 .notchline-te-battery {
-  height: 48px;
-  padding: 0 12px;
-  spacing: 10px;
-  border-radius: 4px;
-  background-color: #0F0E12;
-  box-shadow: inset 0 1px 3px 0 rgba(0, 0, 0, 0.6);
+  height: 30px;
+  padding: 0 8px;
+  spacing: 6px;
 }
 
 .notchline-te-readout {
@@ -775,8 +774,8 @@
 }
 
 .notchline-te-battery-icon {
-  width: 30px;
-  height: 14px;
+  width: 22px;
+  height: 10px;
   color: #F5F5F5;
 }
 
@@ -805,22 +804,22 @@
 
 /* Widgets */
 .notchline-te-widget {
-  padding: 8px;
-  spacing: 12px;
-  border-radius: 12px;
+  padding: 6px;
+  spacing: 8px;
+  border-radius: 10px;
   background-color: #272727;
 }
 
 .notchline-te-widget-side {
-  width: 216px;
+  width: 200px;
 }
 
 .notchline-te-caption {
   padding: 4px 4px 0 4px;
   color: #B2B2B2;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
-  letter-spacing: 1.5px;
+  letter-spacing: 1.2px;
 }
 
 .notchline-te-battery .notchline-te-caption,
@@ -833,8 +832,8 @@
 }
 
 .notchline-te-screen {
-  padding: 12px;
-  spacing: 12px;
+  padding: 10px;
+  spacing: 8px;
   border-radius: 4px;
   background-color: #0F0E12;
   box-shadow: inset 0 1px 3px 0 rgba(0, 0, 0, 0.6);
@@ -842,24 +841,24 @@
 
 .notchline-te-hint {
   color: #B2B2B2;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 400;
 }
 
 .notchline-te-note {
   padding: 0 4px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 300;
 }
 
 /* Music */
 .notchline-te-song {
-  spacing: 12px;
+  spacing: 10px;
 }
 
 .notchline-te-art {
-  width: 48px;
-  height: 48px;
+  width: 34px;
+  height: 34px;
   border-radius: 2px;
 }
 
@@ -870,22 +869,22 @@
 
 .notchline-te-song-title {
   color: #F5F5F5;
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 300;
 }
 
 .notchline-te-song-artist {
   color: #B2B2B2;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 300;
 }
 
 .notchline-te-progress {
-  spacing: 3px;
+  spacing: 2px;
 }
 
 .notchline-te-segment {
-  height: 12px;
+  height: 6px;
   background-color: #3B3B3D;
 }
 
@@ -895,13 +894,13 @@
 
 .notchline-te-controls {
   padding-bottom: 2px;
-  spacing: 24px;
+  spacing: 16px;
 }
 
 .notchline-te-play {
-  width: 52px;
-  height: 52px;
-  border-radius: 26px;
+  width: 34px;
+  height: 34px;
+  border-radius: 17px;
   background-color: #F05A24;
   box-shadow: 0 2px 0 0 #9C3612;
 }
@@ -911,14 +910,14 @@
 }
 
 .notchline-te-play-icon {
-  icon-size: 22px;
+  icon-size: 15px;
   color: #0F0E12;
 }
 
 /* Calendar */
 .notchline-te-events {
-  padding: 4px;
-  spacing: 12px;
+  padding: 2px 4px;
+  spacing: 8px;
 }
 
 .notchline-te-event {
@@ -926,32 +925,32 @@
 }
 
 .notchline-te-event-led {
-  margin-top: 6px;
+  margin-top: 5px;
 }
 
 .notchline-te-event-title {
   color: #F5F5F5;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 400;
 }
 
 .notchline-te-empty-icon {
-  icon-size: 32px;
+  icon-size: 22px;
   color: #4D4D4D;
 }
 
 /* Agents page of the TE theme */
 .notchline-te-agents {
-  spacing: 16px;
+  spacing: 10px;
 }
 
 .notchline-te-agent-side {
-  width: 392px;
-  spacing: 8px;
+  width: 380px;
+  spacing: 6px;
 }
 
 .notchline-te-agents-footer {
-  padding: 0 0 2px 8px;
+  padding: 0 0 2px 6px;
 }
 
 .notchline-te-card-header {
@@ -975,16 +974,16 @@
 
 .notchline-te-agent-headline {
   color: #F5F5F5;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 300;
 }
 
 .notchline-te-command {
-  font-size: 13px;
+  font-size: 11px;
 }
 
 .notchline-te-progress-wide {
-  spacing: 4px;
+  spacing: 3px;
 }
 
 .notchline-te-segment-blue {
@@ -992,28 +991,28 @@
 }
 
 .notchline-te-steps {
-  padding: 4px;
-  spacing: 8px;
+  padding: 2px 4px;
+  spacing: 5px;
 }
 
 .notchline-te-step {
-  spacing: 12px;
+  spacing: 10px;
 }
 
 .notchline-te-step-number {
-  min-width: 20px;
+  min-width: 16px;
   color: #B2B2B2;
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .notchline-te-step-icon {
-  icon-size: 16px;
+  icon-size: 12px;
   color: #4D4D4D;
 }
 
 .notchline-te-step-text {
   color: #B2B2B2;
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 300;
 }
 
@@ -1032,16 +1031,15 @@
 }
 
 .notchline-te-card-footer-line {
-  padding-top: 8px;
+  padding-top: 6px;
   border-top: 1px solid #3B3B3D;
 }
 
 .notchline-te-actions {
-  spacing: 8px;
+  spacing: 6px;
   padding-bottom: 2px;
 }
 
-.notchline-te-key-wide { width: 136px; }
 
 .notchline-te-key-accent {
   background-color: #F05A24;
@@ -1058,6 +1056,6 @@
 }
 
 .notchline-te-screen.notchline-te-empty {
-  padding: 32px 24px;
-  spacing: 8px;
+  padding: 20px 16px;
+  spacing: 6px;
 }

@@ -18,15 +18,15 @@ import {
 
 const PROGRESS_SEGMENTS = 32;
 const LOW_BATTERY = 20;
-// Dot-matrix heights (logical px) of the design's Doto sizes 44, 32, 22 and 14
-const DOTS_DAY = 30;
-const DOTS_TIME = 22;
-const DOTS_BATTERY = 15;
-const DOTS_UNIT = 9;
-// Agent readouts: the design's Doto sizes 48, 32 and 24
-const DOTS_TASKS = 33;
-const DOTS_DURATION = 22;
-const DOTS_STEPS = 17;
+// Dot-matrix heights (logical px), scaled down from the design's Doto sizes for the minimal layout
+const DOTS_DAY = 22;
+const DOTS_TIME = 15;
+const DOTS_BATTERY = 11;
+const DOTS_UNIT = 7;
+// Agent readouts
+const DOTS_TASKS = 22;
+const DOTS_DURATION = 15;
+const DOTS_STEPS = 13;
 
 const MAX_TODOS = 7;
 const SIDE_CARDS = 2;
@@ -55,11 +55,11 @@ export function caption(text, styleClass = 'notchline-te-caption', props = {}) {
     return actor;
 }
 
-// A TE key: label at the top right, its number at the bottom left
+// A TE key on one line: its number on the left, the label on the right
 export function key(text, number, styleClass = '', props = {}) {
-    const cap = new St.BoxLayout({vertical: true, x_expand: true});
-    cap.add_child(caption(text, 'notchline-te-key-label', {x_align: Clutter.ActorAlign.END}));
-    cap.add_child(label(number, 'notchline-te-key-number', {y_expand: true, y_align: Clutter.ActorAlign.END}));
+    const cap = new St.BoxLayout({style_class: 'notchline-te-key-cap', x_expand: true});
+    cap.add_child(label(number, 'notchline-te-key-number', {x_expand: true, y_align: Clutter.ActorAlign.CENTER}));
+    cap.add_child(caption(text, 'notchline-te-key-label', {y_align: Clutter.ActorAlign.CENTER}));
     return new St.Button({style_class: `notchline-te-key ${styleClass}`, child: cap, can_focus: true, ...props});
 }
 
@@ -570,8 +570,7 @@ export class TeAgentsPage {
         const text = session.status === 'done' ? session.summary || 'summary ready to read' : session.tool;
         footer.add_child(label(text ?? '', 'notchline-te-hint notchline-te-command', {x_expand: true, y_align: Clutter.ActorAlign.CENTER}));
         if (window) {
-            footer.add_child(this._key(session.status === 'done' ? 'READ' : 'OPEN TERMINAL',
-                session.status === 'done' ? 'notchline-te-key-media' : 'notchline-te-key-wide',
+            footer.add_child(this._key(session.status === 'done' ? 'READ' : 'OPEN TERMINAL', '',
                 () => Main.activateWindow(window)));
         }
         card.add_child(footer);
