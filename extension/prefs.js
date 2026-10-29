@@ -281,6 +281,9 @@ export default class NotchlinePreferences extends ExtensionPreferences {
 
         const pages = [
             this._generalPage(),
+            this._appearancePage(),
+            this._notificationsPage(),
+            this._motionPage(),
             this._widgetPage(),
             this._shelfPage(),
             this._agentPage(),
@@ -385,7 +388,8 @@ export default class NotchlinePreferences extends ExtensionPreferences {
         const show = index => {
             const page = pages[index];
             this._pageIndex = index;
-            contentView.content = page;
+            if (contentView.content !== page)
+                contentView.content = page;
             contentTitle.title = this._te ? `NL-01 · SETTINGS · ${pad(index + 1)} / ${pad(pages.length)}` : page.title;
             split.content.title = page.title;
         };
@@ -598,8 +602,12 @@ export default class NotchlinePreferences extends ExtensionPreferences {
             'The notch stays hidden until the pointer touches the top center edge. The hide button in the panel hides it until something new arrives.');
         this._switchRow(opening, ['pill', 'idle_visible'], 'Show when idle',
             'Used when "Hide when idle" is off.');
+        return page;
+    }
 
-        const display = this._group(page, 'Display');
+    _appearancePage() {
+        const page = this._page('Appearance', 'preferences-desktop-appearance-symbolic');
+        const display = this._group(page, 'Size and color');
         this._spinRow(display, ['pill', 'idle_width'], 'Idle notch width', 'Pixels. The compact status expands from this size.',
             {lower: 80, upper: 600});
         this._spinRow(display, ['pill', 'idle_height'], 'Notch height', 'Pixels.', {lower: 16, upper: 80});
@@ -616,7 +624,11 @@ export default class NotchlinePreferences extends ExtensionPreferences {
         this._colorRow(display, ['pill', 'background'], 'Notch color', 'Black blends in with the screen bezel.');
         this._spinRow(display, ['pill', 'opacity'], 'Opacity', '0 to 1.',
             {lower: 0, upper: 1, step: 0.05, digits: 2});
+        return page;
+    }
 
+    _notificationsPage() {
+        const page = this._page('Notifications', 'preferences-system-notifications-symbolic');
         const behavior = this._group(page, 'Behavior');
         this._switchRow(behavior, ['behavior', 'show_indicator'], 'Top bar icon',
             'Quick access to open the panel, pause notch notifications and open settings.');
@@ -636,7 +648,11 @@ export default class NotchlinePreferences extends ExtensionPreferences {
             {lower: 1, upper: 30});
         this._spinRow(system, ['system', 'focus_minutes'], 'Focus timer length',
             'Minutes. Start it from the Notchline top bar icon menu, or with notchline focus.', {lower: 1, upper: 180});
+        return page;
+    }
 
+    _motionPage() {
+        const page = this._page('Motion', 'emblem-synchronizing-symbolic');
         const drop = this._group(page, 'Drop',
             'A liquid drop that stretches toward the pointer near the top center edge. All sizes are in pixels.');
         this._switchRow(drop, ['drop', 'enabled'], 'Enable drop');
