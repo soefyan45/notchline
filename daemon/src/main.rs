@@ -411,6 +411,10 @@ fn parse_todos(input: &Value) -> Option<Vec<Todo>> {
 }
 
 impl Notchline {
+    fn pending_permission_ids(&self) -> Vec<u32> {
+        self.agents.iter().filter_map(|s| s.permission.as_ref().map(|p| p.id)).collect()
+    }
+
     /// Fold one hook event into the sessions. Returns a permission id when the event is a
     /// permission request the notch can answer, else 0.
     fn apply_agent_event(&mut self, source: &str, event: &Value) -> u32 {
@@ -625,7 +629,14 @@ impl Notchline {
         }
         let event: Value =
             serde_json::from_str(&json).map_err(|err| fdo::Error::InvalidArgs(err.to_string()))?;
+        let pending = self.pending_permission_ids();
         let id = self.apply_agent_event(&source, &event);
+        // Requests cleared by this event were answered elsewhere (the terminal, another
+        // request, the session ending): release their waiting hooks right away
+        let still_pending = self.pending_permission_ids();
+        for cleared in pending.iter().filter(|p| !still_pending.contains(p)) {
+            Self::permission_answered(&emitter, *cleared, "terminal").await?;
+        }
         self.agents_changed(&emitter).await?;
         Ok(id)
     }
@@ -661,7 +672,11 @@ impl Notchline {
 
 async fn run_daemon() -> zbus::Result<()> {
     let service = Notchline { config: load_config(), next_id: 0, agents: Vec::new() };
+    // Never take the name from a running daemon or hand it over: a second daemon exits
+    // instead of leaving the first one running without the name
     let _conn = connection::Builder::session()
+        .allow_name_replacements(false)
+        .replace_existing_names(false)
         .name(BUS_NAME)
         .serve_at(OBJECT_PATH, service)
         .build()
