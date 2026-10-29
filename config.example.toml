@@ -8,16 +8,19 @@ idle_visible = true
 # Hide the idle notch and reveal it when the pointer hits the top center edge
 # (overrides idle_visible while idle)
 reveal_on_hover = true
-# Notch size while idle (logical pixels)
-idle_width = 160
-idle_height = 30
-# Notch size while showing a notification (logical pixels)
+# "menyatu" grows out of the top edge with concave corners,
+# "pulau" floats below it as a separate pill (uses top_offset)
+style = "menyatu"
+# Notch size while idle (logical pixels); compact lines grow from this width
+idle_width = 200
+idle_height = 32
+# Width and minimum height of a notification opened in full (logical pixels)
 expanded_width = 420
 expanded_height = 72
-# Gap between the top of the screen and the notch
+# Gap between the top of the screen and the notch (style = "pulau" only)
 top_offset = 4
 # Corner radius, clamped to half the height
-radius = 18
+radius = 20
 # Background color (#rrggbb) and its opacity (0.0 - 1.0)
 background = "#000000"
 opacity = 0.95
@@ -31,3 +34,28 @@ timeout_ms = 4000
 hide_gnome_banners = true
 # Show GNOME system notifications (notify-send, apps) in the notch
 capture_system = true
+
+[drop]
+# Liquid drop that reaches for the pointer near the top center (logical pixels)
+enabled = true
+# Distance below the notch at which the drop starts reaching for the pointer
+pull_range = 80.0
+# Deepest the drop reaches
+max_depth = 22.0
+# Width range of the drop
+min_width = 5.0
+max_width = 11.0
+# How softly the drop blends into the notch
+blend = 6.0
+
+[spring]
+# Springs behind every movement, tuned for animation_ms = 280.
+# Higher stiffness is snappier; lower damping wobbles more.
+width_stiffness = 170.0
+width_damping = 15.0
+height_stiffness = 320.0
+height_damping = 22.0
+drop_stiffness = 520.0
+drop_damping = 20.0
+drop_x_stiffness = 600.0
+drop_x_damping = 45.0

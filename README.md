@@ -61,8 +61,13 @@ to reveal it (set `reveal_on_hover = false` to keep it always visible).
 
 ## Configuration
 
-Copy [`config.example.toml`](config.example.toml) to
-`~/.config/notchline/config.toml`, edit it, then run `notchline reload`.
+Open the preferences window with `gnome-extensions prefs notchline@soefyan45.github.io`
+(or from the Extensions app). Changes are saved to `~/.config/notchline/config.toml`
+right away and applied to the notch; saving rewrites the file, so comments in it are lost.
+
+To edit the file by hand instead, copy [`config.example.toml`](config.example.toml) to
+`~/.config/notchline/config.toml`, edit it, then run `notchline reload`. The `[drop]`
+and `[spring]` sections tune the liquid drop and the springs behind every movement.
 
 ## Development
 

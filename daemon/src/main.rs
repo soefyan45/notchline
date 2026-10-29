@@ -32,7 +32,25 @@ enum Command {
         #[arg(long, default_value_t = 0)]
         timeout: u32,
     },
-    /// Dismiss a notification by id
+    /// Show a compact status line in the notch
+    Status {
+        /// Text after the icon, e.g. Fokus
+        #[arg(long, default_value = "")]
+        text: String,
+        /// Value on the right, e.g. 24.59 or 82%
+        #[arg(long, default_value = "")]
+        trail: String,
+        /// Themed icon name, e.g. alarm-symbolic
+        #[arg(long, default_value = "")]
+        icon: String,
+        /// Color of the icon and value: accent, success, warn, danger or muted
+        #[arg(long, default_value = "accent")]
+        color: String,
+        /// Display time in milliseconds (0 = use config default)
+        #[arg(long, default_value_t = 0)]
+        timeout: u32,
+    },
+    /// Dismiss a notification or status by id
     Dismiss { id: u32 },
     /// Reload config.toml and push it to the extension
     Reload,
@@ -47,6 +65,8 @@ enum Command {
 struct Config {
     pill: PillConfig,
     behavior: BehaviorConfig,
+    drop: DropConfig,
+    spring: SpringConfig,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -56,6 +76,8 @@ struct PillConfig {
     idle_visible: bool,
     /// Hide the idle notch until the pointer reaches the top center edge
     reveal_on_hover: bool,
+    /// "menyatu" grows out of the top edge, "pulau" floats below it
+    style: String,
     idle_width: u32,
     idle_height: u32,
     expanded_width: u32,
@@ -77,17 +99,76 @@ struct BehaviorConfig {
     capture_system: bool,
 }
 
+/// Liquid drop that reaches for the pointer (logical pixels)
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(default)]
+struct DropConfig {
+    enabled: bool,
+    /// Distance below the notch at which the drop starts reaching for the pointer
+    pull_range: f64,
+    /// Deepest the drop reaches
+    max_depth: f64,
+    /// Width range of the drop
+    min_width: f64,
+    max_width: f64,
+    /// How softly the drop blends into the notch
+    blend: f64,
+}
+
+/// Springs behind every movement, at animation_ms = 280; lower damping wobbles more
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(default)]
+struct SpringConfig {
+    width_stiffness: f64,
+    width_damping: f64,
+    height_stiffness: f64,
+    height_damping: f64,
+    drop_stiffness: f64,
+    drop_damping: f64,
+    drop_x_stiffness: f64,
+    drop_x_damping: f64,
+}
+
+impl Default for DropConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            pull_range: 80.0,
+            max_depth: 22.0,
+            min_width: 5.0,
+            max_width: 11.0,
+            blend: 6.0,
+        }
+    }
+}
+
+impl Default for SpringConfig {
+    fn default() -> Self {
+        Self {
+            width_stiffness: 170.0,
+            width_damping: 15.0,
+            height_stiffness: 320.0,
+            height_damping: 22.0,
+            drop_stiffness: 520.0,
+            drop_damping: 20.0,
+            drop_x_stiffness: 600.0,
+            drop_x_damping: 45.0,
+        }
+    }
+}
+
 impl Default for PillConfig {
     fn default() -> Self {
         Self {
             idle_visible: true,
             reveal_on_hover: true,
-            idle_width: 160,
-            idle_height: 30,
+            style: "menyatu".into(),
+            idle_width: 200,
+            idle_height: 32,
             expanded_width: 420,
             expanded_height: 72,
             top_offset: 4,
-            radius: 18,
+            radius: 20,
             background: "#000000".into(),
             opacity: 0.95,
             animation_ms: 280,
@@ -112,6 +193,15 @@ fn config_path() -> PathBuf {
     base.join("notchline").join("config.toml")
 }
 
+fn save_config(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    let path = config_path();
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    std::fs::write(&path, toml::to_string_pretty(config)?)?;
+    Ok(())
+}
+
 fn load_config() -> Config {
     let path = config_path();
     match std::fs::read_to_string(&path) {
@@ -128,6 +218,13 @@ struct Notchline {
     next_id: u32,
 }
 
+impl Notchline {
+    fn next_id(&mut self) -> u32 {
+        self.next_id = self.next_id.wrapping_add(1).max(1);
+        self.next_id
+    }
+}
+
 #[interface(name = "io.github.soefyan45.Notchline")]
 impl Notchline {
     async fn show(
@@ -138,10 +235,24 @@ impl Notchline {
         timeout_ms: u32,
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
     ) -> fdo::Result<u32> {
-        self.next_id = self.next_id.wrapping_add(1).max(1);
-        let id = self.next_id;
+        let id = self.next_id();
         let timeout_ms = if timeout_ms == 0 { self.config.behavior.timeout_ms } else { timeout_ms };
         Self::show_requested(&emitter, id, &title, &body, &icon, timeout_ms).await?;
+        Ok(id)
+    }
+
+    async fn show_status(
+        &mut self,
+        icon: String,
+        text: String,
+        trail: String,
+        color: String,
+        timeout_ms: u32,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) -> fdo::Result<u32> {
+        let id = self.next_id();
+        let timeout_ms = if timeout_ms == 0 { self.config.behavior.timeout_ms } else { timeout_ms };
+        Self::status_requested(&emitter, id, &icon, &text, &trail, &color, timeout_ms).await?;
         Ok(id)
     }
 
@@ -152,6 +263,20 @@ impl Notchline {
 
     async fn reload(&mut self, #[zbus(signal_emitter)] emitter: SignalEmitter<'_>) -> fdo::Result<()> {
         self.config = load_config();
+        self.config_changed(&emitter).await?;
+        Ok(())
+    }
+
+    /// Replace the config with a JSON one (from the preferences window) and save it
+    async fn set_config(
+        &mut self,
+        json: String,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) -> fdo::Result<()> {
+        let config: Config =
+            serde_json::from_str(&json).map_err(|err| fdo::Error::InvalidArgs(err.to_string()))?;
+        save_config(&config).map_err(|err| fdo::Error::Failed(err.to_string()))?;
+        self.config = config;
         self.config_changed(&emitter).await?;
         Ok(())
     }
@@ -169,6 +294,17 @@ impl Notchline {
         title: &str,
         body: &str,
         icon: &str,
+        timeout_ms: u32,
+    ) -> zbus::Result<()>;
+
+    #[zbus(signal)]
+    async fn status_requested(
+        emitter: &SignalEmitter<'_>,
+        id: u32,
+        icon: &str,
+        text: &str,
+        trail: &str,
+        color: &str,
         timeout_ms: u32,
     ) -> zbus::Result<()>;
 
@@ -216,6 +352,11 @@ async fn main() {
             Command::Daemon => run_daemon().await?,
             Command::Show { title, body, icon, timeout } => {
                 let reply = call("Show", &(title, body, icon, timeout)).await?;
+                let id: u32 = reply.body().deserialize()?;
+                println!("{id}");
+            }
+            Command::Status { text, trail, icon, color, timeout } => {
+                let reply = call("ShowStatus", &(icon, text, trail, color, timeout)).await?;
                 let id: u32 = reply.body().deserialize()?;
                 println!("{id}");
             }

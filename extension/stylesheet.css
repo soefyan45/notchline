@@ -1,19 +1,50 @@
-.notchline-pill {
-  padding: 0 16px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+/*
+ * Design tokens from the Pego "Notchline" design system (St has no CSS variables):
+ *   text #ECEEF2, text-muted #9AA1AF, accent #2DD4BF, success #4ADE80,
+ *   warn #FBBF24, danger #F87171. Background, radius and padding of the
+ *   notch body are set inline from config.toml.
+ */
+
+/* Compact line */
+.notchline-compact {
+  spacing: 24px;
 }
 
-.notchline-pill.notchline-full {
-  padding: 14px 16px;
+.notchline-lead {
+  spacing: 8px;
 }
 
-.notchline-content {
+.notchline-lead-icon {
+  icon-size: 18px;
+  color: #ECEEF2;
+}
+
+.notchline-lead-text {
+  color: #ECEEF2;
+  font-family: Inter, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.notchline-trail-text {
+  color: #9AA1AF;
+  font-family: Inter, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.notchline-mono {
+  font-family: "Geist Mono", "JetBrains Mono", monospace;
+}
+
+/* Full notification */
+.notchline-detail {
   spacing: 12px;
 }
 
 .notchline-icon {
   icon-size: 36px;
-  color: #ffffff;
+  color: #ECEEF2;
 }
 
 .notchline-text {
@@ -21,12 +52,21 @@
 }
 
 .notchline-title {
-  color: #ffffff;
-  font-weight: bold;
-  font-size: 11pt;
+  color: #ECEEF2;
+  font-family: Inter, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
 }
 
-.notchline-body {
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 10pt;
+.notchline-body-text {
+  color: #9AA1AF;
+  font-family: Inter, sans-serif;
+  font-size: 13px;
 }
+
+/* Status colors; kept last so they win over the defaults above */
+.notchline-accent { color: #2DD4BF; }
+.notchline-success { color: #4ADE80; }
+.notchline-warn { color: #FBBF24; }
+.notchline-danger { color: #F87171; }
+.notchline-muted { color: #9AA1AF; }
