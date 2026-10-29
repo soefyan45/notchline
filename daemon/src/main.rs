@@ -60,12 +60,13 @@ enum Command {
     Dismiss { id: u32 },
     /// Forward a coding agent hook event read from stdin (used by the agent's hooks)
     Hook {
-        /// Which agent sent it; only "claude" for now
+        /// Which agent sent it: claude or opencode
         source: String,
     },
-    /// Register Notchline's hooks with a coding agent (backs up its settings first)
+    /// Register Notchline with a coding agent: hooks for "claude" (backs up its settings
+    /// first), a plugin for "opencode"
     InstallHooks {
-        /// Agent to set up; only "claude" for now
+        /// claude or opencode
         agent: String,
     },
     /// Remove Notchline's hooks from a coding agent's settings
@@ -781,6 +782,33 @@ async fn run_hook(source: &str) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+const OPENCODE_PLUGIN: &str = include_str!("../../integrations/opencode/notchline.ts");
+
+/// OpenCode loads plugins from plugin/ or plugins/ in its config directory; use whichever
+/// already exists
+fn opencode_plugin_path() -> PathBuf {
+    let base = std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".config"))
+        .join("opencode");
+    let dir = if base.join("plugin").is_dir() && !base.join("plugins").is_dir() { "plugin" } else { "plugins" };
+    base.join(dir).join("notchline.ts")
+}
+
+fn edit_opencode_plugin(install: bool) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let path = opencode_plugin_path();
+    if install {
+        let exe = std::env::current_exe()?;
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        std::fs::write(&path, OPENCODE_PLUGIN.replace("__NOTCHLINE__", &exe.display().to_string()))?;
+    } else if path.exists() {
+        std::fs::remove_file(&path)?;
+    }
+    Ok(path)
+}
+
 fn claude_settings_path() -> PathBuf {
     std::env::var_os("CLAUDE_CONFIG_DIR")
         .map(PathBuf::from)
@@ -856,8 +884,16 @@ async fn main() {
         match cli.command {
             Command::Daemon => run_daemon().await?,
             Command::Hook { .. } => unreachable!(),
-            Command::InstallHooks { agent } | Command::UninstallHooks { agent } if agent != "claude" => {
-                return Err(format!("unknown agent {agent:?}; only \"claude\" is supported").into());
+            Command::InstallHooks { agent } | Command::UninstallHooks { agent }
+                if agent != "claude" && agent != "opencode" =>
+            {
+                return Err(format!("unknown agent {agent:?}; use claude or opencode").into());
+            }
+            Command::InstallHooks { agent } if agent == "opencode" => {
+                println!("installed notchline plugin at {}", edit_opencode_plugin(true)?.display());
+            }
+            Command::UninstallHooks { agent } if agent == "opencode" => {
+                println!("removed notchline plugin from {}", edit_opencode_plugin(false)?.display());
             }
             Command::InstallHooks { .. } => {
                 let backup = edit_claude_hooks(true)?;

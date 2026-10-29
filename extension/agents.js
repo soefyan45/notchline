@@ -90,7 +90,7 @@ export class AgentsPage {
             x_align: Clutter.ActorAlign.CENTER,
         }));
         this._empty.add_child(label('Belum ada sesi agen', 'notchline-empty-title', {x_align: Clutter.ActorAlign.CENTER}));
-        this._empty.add_child(label('Pasang hook Claude Code di Pengaturan · Agen AI, lalu mulai sesi di terminal.',
+        this._empty.add_child(label('Pasang Claude Code atau OpenCode di Pengaturan · Agen AI, lalu mulai sesi di terminal.',
             'notchline-empty-hint', {x_align: Clutter.ActorAlign.CENTER}));
 
         const footer = new St.BoxLayout({style_class: 'notchline-agents-footer'});
@@ -115,7 +115,8 @@ export class AgentsPage {
         const sorted = sortSessions(sessions);
         this._empty.visible = sorted.length === 0;
         this._cards.visible = sorted.length > 0;
-        this._count.text = sorted.length ? `${sorted.length} sesi · dari hook Claude Code` : '';
+        const sources = [...new Set(sorted.map(agentName))].join(' dan ');
+        this._count.text = sorted.length ? `${sorted.length} sesi · ${sources}` : '';
 
         // The first session gets the big card with its todo list, the rest stack beside it
         sorted.forEach((session, i) => {

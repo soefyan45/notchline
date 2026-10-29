@@ -422,33 +422,11 @@ export default class NotchlinePreferences extends ExtensionPreferences {
         const page = new Adw.PreferencesPage({title: 'Agen AI', icon_name: 'utilities-terminal-symbolic'});
 
         const sources = this._group(page, 'Sumber',
-            'Notchline membaca kejadian dari hook agen coding di terminal, lalu menampilkan progresnya di notch. Tidak ada data yang dikirim keluar dari komputer ini.');
-        const claude = plainRow({title: 'Claude Code', subtitle: 'Hook · ~/.claude/settings.json'});
-        const state = new Gtk.Label({valign: Gtk.Align.CENTER, css_classes: ['dim-label']});
-        const toggle = new Gtk.Button({valign: Gtk.Align.CENTER});
-        const refresh = () => {
-            const installed = this._claudeHooksInstalled();
-            state.label = installed ? 'Terhubung' : 'Belum dipasang';
-            toggle.label = installed ? 'Lepas' : 'Pasang';
-            toggle.css_classes = installed ? [] : ['suggested-action'];
-        };
-        toggle.connect('clicked', () => {
-            const command = this._claudeHooksInstalled() ? 'uninstall-hooks' : 'install-hooks';
-            toggle.sensitive = false;
-            this._runNotchline([command, 'claude'], error => {
-                toggle.sensitive = true;
-                refresh();
-                if (error)
-                    state.label = `Gagal: ${error}`;
-            });
-        });
-        refresh();
-        claude.add_suffix(state);
-        claude.add_suffix(toggle);
-        sources.add(claude);
-        const opencode = plainRow({title: 'OpenCode', subtitle: `Plugin · ~/.config/opencode/plugin/notchline.ts · ${COMING_SOON}`});
-        opencode.sensitive = false;
-        sources.add(opencode);
+            'Notchline membaca kejadian dari hook Claude Code dan plugin OpenCode, lalu menampilkan progresnya di notch. Tidak ada data yang dikirim keluar dari komputer ini.');
+        this._sourceRow(sources, 'Claude Code', 'Hook · ~/.claude/settings.json', 'claude',
+            () => this._claudeHooksInstalled());
+        this._sourceRow(sources, 'OpenCode', 'Plugin · ~/.config/opencode/plugins/notchline.ts', 'opencode',
+            () => this._openCodePluginInstalled());
 
         const display = this._group(page, 'Tampilkan di notch', 'Berlaku untuk semua sumber di atas.');
         this._switchRow(display, ['agent', 'enabled'], 'Aktifkan agen');
@@ -505,6 +483,38 @@ export default class NotchlinePreferences extends ExtensionPreferences {
         group.add(entry);
         refresh();
         this._refreshers.push(refresh);
+    }
+
+    // An agent source with its state and an install / remove button
+    _sourceRow(group, title, subtitle, agent, isInstalled) {
+        const row = plainRow({title, subtitle});
+        const state = new Gtk.Label({valign: Gtk.Align.CENTER, css_classes: ['dim-label']});
+        const toggle = new Gtk.Button({valign: Gtk.Align.CENTER});
+        const refresh = () => {
+            const installed = isInstalled();
+            state.label = installed ? 'Terhubung' : 'Belum dipasang';
+            toggle.label = installed ? 'Lepas' : 'Pasang';
+            toggle.css_classes = installed ? [] : ['suggested-action'];
+        };
+        toggle.connect('clicked', () => {
+            toggle.sensitive = false;
+            this._runNotchline([isInstalled() ? 'uninstall-hooks' : 'install-hooks', agent], error => {
+                toggle.sensitive = true;
+                refresh();
+                if (error)
+                    state.label = `Gagal: ${error}`;
+            });
+        });
+        refresh();
+        row.add_suffix(state);
+        row.add_suffix(toggle);
+        group.add(row);
+    }
+
+    _openCodePluginInstalled() {
+        const base = GLib.build_filenamev([GLib.get_user_config_dir(), 'opencode']);
+        return ['plugins', 'plugin'].some(dir =>
+            GLib.file_test(GLib.build_filenamev([base, dir, 'notchline.ts']), GLib.FileTest.EXISTS));
     }
 
     _claudeHooksInstalled() {

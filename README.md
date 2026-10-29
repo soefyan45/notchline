@@ -65,20 +65,24 @@ to reveal it (set `reveal_on_hover = false` to keep it always visible).
 
 ## Coding agents
 
-Notchline shows what Claude Code is doing: the current step and todo progress
+Notchline shows what Claude Code and OpenCode are doing: the current step and todo progress
 (`Claude Code 4/7`), permission requests, and a short notice when it finishes. Hover or
 pull the notch and open the **Agen** tab for the full session cards.
 
 ```bash
 notchline install-hooks claude     # adds hooks to ~/.claude/settings.json (backs it up first)
 notchline uninstall-hooks claude   # removes only Notchline's hooks
+notchline install-hooks opencode   # writes ~/.config/opencode/plugins/notchline.ts
+notchline uninstall-hooks opencode
 ```
 
 The same can be done from Preferences → Agen AI. Each hook runs `notchline hook claude`,
 which forwards the event to the daemon and returns at once; it never blocks the agent if
-the daemon is unavailable.
+the daemon is unavailable. The OpenCode plugin
+([`integrations/opencode/notchline.ts`](integrations/opencode/notchline.ts)) turns
+OpenCode's events into the same shape and calls `notchline hook opencode`.
 
-When Claude Code asks for permission, the notch opens on the agents tab. **Tolak** denies,
+When an agent asks for permission, the notch opens on the agents tab. **Tolak** denies,
 **Di terminal** hands the question back to the terminal, and **Izinkan sekali** appears only
 for commands in `[agent] safe_commands` (anything with `;`, `&`, `|`, `` ` ``, `$(`, `>`,
 `<`, `sudo`, `rm -rf`, `git push` or `curl` always goes to the terminal). Without an answer
