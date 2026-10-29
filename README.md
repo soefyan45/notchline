@@ -73,6 +73,24 @@ To edit the file by hand instead, copy [`config.example.toml`](config.example.to
 `~/.config/notchline/config.toml`, edit it, then run `notchline reload`. The `[drop]`
 and `[spring]` sections tune the liquid drop and the springs behind every movement.
 
+`notchline install-service` also adds a **Notchline** launcher with the app icon to the
+app grid and search; it opens the preferences. (The Extensions app has no place for an
+extension's own icon.)
+
+## Packaging for extensions.gnome.org
+
+Pack from inside the extension directory (running it from the repo root crashes on
+GNOME 46):
+
+```bash
+cd extension && gnome-extensions pack . --extra-source=icons --force --out-dir=../dist
+```
+
+Upload `dist/notchline@soefyan45.github.io.shell-extension.zip` at
+<https://extensions.gnome.org/upload/>; the listing icon is uploaded there separately.
+The daemon is not part of the zip, so the listing should point to this repository for
+`cargo install`.
+
 ## Development
 
 Test the extension without logging out using a nested shell:

@@ -56,7 +56,7 @@ enum Command {
     Reload,
     /// Print the effective config
     Config,
-    /// Install the D-Bus activation file for this binary
+    /// Install D-Bus activation and the Notchline app launcher
     InstallService,
 }
 
@@ -331,17 +331,42 @@ where
     conn.call_method(Some(BUS_NAME), OBJECT_PATH, Some(INTERFACE), method, body).await
 }
 
-fn install_service() -> std::io::Result<PathBuf> {
+const EXTENSION_UUID: &str = "notchline@soefyan45.github.io";
+const APP_ICON: &str = include_str!("../../extension/icons/notchline-symbol.svg");
+
+fn write_file(path: PathBuf, content: &str) -> std::io::Result<PathBuf> {
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    std::fs::write(&path, content)?;
+    Ok(path)
+}
+
+/// D-Bus activation for this binary, plus a launcher with the Notchline icon that opens
+/// the preferences (the Extensions app has no place for an extension's icon)
+fn install_service() -> std::io::Result<Vec<PathBuf>> {
     let exe = std::env::current_exe()?;
     let base = std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".local/share"));
-    let dir = base.join("dbus-1/services");
-    std::fs::create_dir_all(&dir)?;
-    let path = dir.join(format!("{BUS_NAME}.service"));
-    let content = format!("[D-BUS Service]\nName={BUS_NAME}\nExec={} daemon\n", exe.display());
-    std::fs::write(&path, content)?;
-    Ok(path)
+
+    let service = format!("[D-BUS Service]\nName={BUS_NAME}\nExec={} daemon\n", exe.display());
+    let launcher = format!(
+        "[Desktop Entry]\n\
+         Type=Application\n\
+         Name=Notchline\n\
+         Comment=Notch-style notifications for GNOME\n\
+         Exec=gnome-extensions prefs {EXTENSION_UUID}\n\
+         Icon={BUS_NAME}\n\
+         Terminal=false\n\
+         Categories=GNOME;GTK;Settings;DesktopSettings;\n\
+         Keywords=notch;notification;notifikasi;\n"
+    );
+    Ok(vec![
+        write_file(base.join("dbus-1/services").join(format!("{BUS_NAME}.service")), &service)?,
+        write_file(base.join("icons/hicolor/scalable/apps").join(format!("{BUS_NAME}.svg")), APP_ICON)?,
+        write_file(base.join("applications").join(format!("{BUS_NAME}.desktop")), &launcher)?,
+    ])
 }
 
 #[tokio::main]
@@ -371,7 +396,9 @@ async fn main() {
                 print!("{}", toml::to_string_pretty(&load_config())?);
             }
             Command::InstallService => {
-                println!("installed {}", install_service()?.display());
+                for path in install_service()? {
+                    println!("installed {}", path.display());
+                }
             }
         }
         Ok(())
