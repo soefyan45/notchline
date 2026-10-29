@@ -60,18 +60,72 @@ export default class NotchlinePreferences extends ExtensionPreferences {
             this._error = e.message;
         }
 
-        window.set_default_size(720, 820);
-        window.search_enabled = true;
-        window.add(this._generalPage());
-        window.add(this._widgetPage());
-        window.add(this._shelfPage());
-        window.add(this._agentPage());
-        window.add(this._shortcutPage());
-        window.add(this._aboutPage());
+        window.set_default_size(980, 820);
+        window.width_request = 360;
+        window.height_request = 480;
+        // GNOME requires a page in the window's own stack before our layout replaces it
+        window.add(new Adw.PreferencesPage());
+        window.set_content(this._sidebarLayout(window, [
+            this._generalPage(),
+            this._widgetPage(),
+            this._shelfPage(),
+            this._agentPage(),
+            this._shortcutPage(),
+            this._aboutPage(),
+        ]));
         window.connect('close-request', () => {
             this._flushSave();
             return false;
         });
+    }
+
+    // Sidebar on the left, the selected page on the right, like the design; on a narrow
+    // window the sidebar becomes the first screen
+    _sidebarLayout(window, pages) {
+        const list = new Gtk.ListBox({css_classes: ['navigation-sidebar']});
+        for (const page of pages) {
+            const box = new Gtk.Box({spacing: 12, margin_start: 6, margin_end: 6, margin_top: 6, margin_bottom: 6});
+            box.append(new Gtk.Image({icon_name: page.icon_name}));
+            box.append(new Gtk.Label({label: page.title, xalign: 0}));
+            list.append(new Gtk.ListBoxRow({child: box}));
+        }
+
+        const sidebarHeader = new Adw.HeaderBar({show_title: true});
+        sidebarHeader.title_widget = new Adw.WindowTitle({title: 'Notchline'});
+        const sidebarView = new Adw.ToolbarView({content: new Gtk.ScrolledWindow({
+            child: list,
+            hscrollbar_policy: Gtk.PolicyType.NEVER,
+        })});
+        sidebarView.add_top_bar(sidebarHeader);
+
+        const contentTitle = new Adw.WindowTitle();
+        const contentHeader = new Adw.HeaderBar();
+        contentHeader.title_widget = contentTitle;
+        const contentView = new Adw.ToolbarView();
+        contentView.add_top_bar(contentHeader);
+
+        const split = new Adw.NavigationSplitView({
+            sidebar: new Adw.NavigationPage({title: 'Notchline', child: sidebarView}),
+            content: new Adw.NavigationPage({title: pages[0].title, child: contentView}),
+            min_sidebar_width: 200,
+            max_sidebar_width: 240,
+        });
+
+        list.connect('row-activated', (_list, row) => {
+            const page = pages[row.get_index()];
+            contentView.content = page;
+            contentTitle.title = page.title;
+            split.content.title = page.title;
+            split.show_content = true;
+        });
+        list.select_row(list.get_row_at_index(0));
+        contentView.content = pages[0];
+        contentTitle.title = pages[0].title;
+
+        const breakpoint = new Adw.Breakpoint({condition: Adw.BreakpointCondition.parse('max-width: 600sp')});
+        breakpoint.add_setter(split, 'collapsed', true);
+        window.add_breakpoint(breakpoint);
+        return split;
     }
 
     // Config access and saving

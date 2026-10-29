@@ -123,6 +123,13 @@ const EAR_SIZE = 10;
 const POINTER_POLL_MS = 60;
 // animation_ms the spring settings are tuned for
 const SPRING_BASE_MS = 280;
+// Sliding the notch sideways is only for play and never saved: it follows the pointer
+// with rubber-band resistance up to SLIDE_MAX (logical px), smears wider while it moves
+// fast, and springs back to the center when let go
+const SLIDE_MAX = 120;
+const SLIDE_SMEAR = 0.04;
+const SLIDE_SMEAR_MAX = 40;
+const SPRING_SLIDE = [260, 14];
 // Distance (px) at which a moving shape counts as arrived, for content and callbacks
 const NEAR_PX = 2;
 // Body padding (logical px): side padding of the compact line, [vertical, side] of the detail
@@ -237,6 +244,8 @@ class Pill {
         this._height = new Spring();
         this._drop = new Spring();
         this._dropX = new Spring();
+        this._offset = new Spring();
+        [this._offset.stiffness, this._offset.damping] = SPRING_SLIDE;
         this._tuneSprings();
 
         // The silhouette is drawn rather than styled so it can flow like a liquid
@@ -437,7 +446,7 @@ class Pill {
             return;
 
         this._readPointer();
-        const springs = [this._width, this._height, this._drop, this._dropX];
+        const springs = [this._width, this._height, this._drop, this._dropX, this._offset];
         if (springs.every(spring => spring.settled)) {
             // Lay out once more at rest, then leave the shape alone
             if (!this._still) {
@@ -452,8 +461,7 @@ class Pill {
             const steps = Math.ceil(dt / (1 / 240));
             for (let i = 0; i < steps; i++)
                 springs.forEach(spring => spring.step(dt / steps, speed));
-            if (!this._drag?.active)
-                this._layout();
+            this._layout();
         }
 
         const near = NEAR_PX * scaleFactor();
@@ -489,9 +497,9 @@ class Pill {
         const scale = scaleFactor();
         const p = this._config.pill;
         const [px, py] = global.get_pointer();
-        const cx = monitor.x + monitor.width / 2;
+        const cx = this._centerX();
         const top = this._top();
-        const width = Math.max(this._width.value, 0);
+        const width = this._shapeWidth();
         const height = Math.max(this._height.value, 0);
         const half = Math.max(width / 2, p.idle_width * scale / 2);
         const dx = px - cx;
@@ -597,8 +605,8 @@ class Pill {
         if (event.get_button() !== Clutter.BUTTON_PRIMARY || this._collapsing || this._drag)
             return Clutter.EVENT_PROPAGATE;
 
-        const [, y] = event.get_coords();
-        this._drag = {startY: y, fromOpen: this._mode() === 'full', active: false};
+        const [x, y] = event.get_coords();
+        this._drag = {startX: x, startY: y, fromOpen: this._mode() === 'full', active: false};
         this._drag.progress = this._drag.fromOpen ? 1 : 0;
         this._grab = global.stage.grab(this.actor);
         return Clutter.EVENT_STOP;
@@ -610,26 +618,38 @@ class Pill {
             return Clutter.EVENT_PROPAGATE;
 
         const scale = scaleFactor();
-        const [, y] = event.get_coords();
+        const [x, y] = event.get_coords();
+        const dx = x - drag.startX;
         const dy = y - drag.startY;
 
         if (!drag.active) {
-            if (Math.abs(dy) < DRAG_THRESHOLD * scale)
+            if (Math.hypot(dx, dy) < DRAG_THRESHOLD * scale)
                 return Clutter.EVENT_STOP;
 
             drag.active = true;
+            // Lock to the first clear direction: sideways slides, down pulls open
+            drag.slide = Math.abs(dx) > Math.abs(dy);
             this._clearHoverTimeout();
+            this._drop.target = 0;
+            this._wake();
+        }
+
+        if (drag.slide) {
+            const max = SLIDE_MAX * scale;
+            this._offset.target = Math.sign(dx) * max * (1 - Math.exp(-Math.abs(dx) / max));
+            return Clutter.EVENT_STOP;
+        }
+
+        if (!drag.closed) {
             if (!this.expanded)
                 this._onPull();
             drag.closed = this._bodySize(this.expanded ? 'compact' : 'idle');
             drag.full = this._bodySize('full');
-            this._drop.target = 0;
             this._content.remove_all_transitions();
             this._contentPending = false;
             this._showLayer('detail');
             this._styleBody();
             this._content.opacity = drag.fromOpen ? 255 : 0;
-            this._wake();
         }
 
         const range = Math.max(drag.full.height - drag.closed.height, MIN_PULL_RANGE * scale);
@@ -654,7 +674,11 @@ class Pill {
         this._grab?.dismiss();
         this._grab = null;
 
-        if (drag.active) {
+        if (drag.slide) {
+            // Let go: spring back to the center
+            this._offset.target = 0;
+            this._wake();
+        } else if (drag.active) {
             // The pull decides; hovering must not reopen what was pushed closed
             const open = drag.fromOpen
                 ? drag.progress > PULL_CLOSE_THRESHOLD
@@ -677,6 +701,18 @@ class Pill {
         this._layer = layer;
         this._compactRow.visible = layer === 'compact';
         this._detail.visible = layer === 'detail';
+    }
+
+    // Center of the notch, moved while it is slid sideways
+    _centerX() {
+        const monitor = Main.layoutManager.primaryMonitor;
+        return monitor.x + monitor.width / 2 + this._offset.value;
+    }
+
+    // Drawn body width: the sprung width, smeared wider while sliding fast
+    _shapeWidth() {
+        const smear = Math.min(Math.abs(this._offset.velocity) * SLIDE_SMEAR, SLIDE_SMEAR_MAX * scaleFactor());
+        return Math.max(this._width.value, 0) + smear;
     }
 
     _top() {
@@ -759,7 +795,7 @@ class Pill {
             return;
 
         const scale = scaleFactor();
-        const width = Math.max(this._width.value, 0);
+        const width = this._shapeWidth();
         const height = Math.max(this._height.value, 0);
         const depth = Math.max(this._drop.value, 0);
         const visible = (width > 0.5 && height > 0.5) || depth > 0.5;
@@ -768,7 +804,7 @@ class Pill {
             return;
 
         // Bounding box of the notch, its ears and the drop
-        const cx = monitor.x + monitor.width / 2;
+        const cx = this._centerX();
         const ear = this._merged() ? EAR_SIZE * scale : 0;
         const dropReach = depth > 0.5 ? Math.abs(this._dropX.value - cx) + 3 * this._dropWidth(depth) : 0;
         const half = Math.ceil(Math.max(width / 2 + ear, dropReach, 1));
@@ -779,8 +815,10 @@ class Pill {
         this.actor.set_position(this._left, this._top());
         this.actor.set_size(2 * half, boxHeight);
         this._shape.set_size(2 * half, boxHeight);
-        this._body.set_position(Math.round(cx - width / 2) - this._left, 0);
-        this._body.set_size(Math.round(width), Math.round(height));
+        // Content keeps the sprung width; only the drawn shape smears
+        const bodyWidth = Math.max(this._width.value, 0);
+        this._body.set_position(Math.round(cx - bodyWidth / 2) - this._left, 0);
+        this._body.set_size(Math.round(bodyWidth), Math.round(height));
         this._shape.queue_repaint();
     }
 
@@ -790,13 +828,13 @@ class Pill {
         const p = this._config.pill;
         const [r, g, b] = parseHex(p.background);
         const monitor = Main.layoutManager.primaryMonitor;
-        const width = Math.max(this._width.value, 0);
+        const width = this._shapeWidth();
         const height = Math.max(this._height.value, 0);
         cr.setSourceRGBA(r / 255, g / 255, b / 255, p.opacity);
 
         if (monitor && this._merged()) {
             // Trace the lower edge pixel by pixel; the top edge is the screen edge
-            const cx = monitor.x + monitor.width / 2 - this._left;
+            const cx = this._centerX() - this._left;
             cr.moveTo(0, 0);
             for (let x = 0; x <= boxWidth; x++)
                 cr.lineTo(x, this._edgeAt(x, cx, width, height));
@@ -829,8 +867,8 @@ class Pill {
 
         const mode = this._mode();
         this._shownMode = mode;
-        // The drag owns the shape; the release settles it
-        if (this._drag?.active) {
+        // A pull owns the shape; the release settles it (a slide only moves it sideways)
+        if (this._drag?.active && !this._drag.slide) {
             onComplete?.();
             return;
         }
