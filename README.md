@@ -24,6 +24,8 @@ when something arrives and shrinks back to a small notch afterwards.
 - **Full panel:** pull the notch down for music controls, the calendar and coding agent sessions.
 - **System statuses:** battery level on charging, upcoming meetings and a focus timer.
 - **Coding agents:** live progress of Claude Code and OpenCode, with permission requests you can answer from the notch.
+- **Themes:** the default black with a teal accent, or TE with graphite cards and an orange accent.
+- **Hide on demand:** hide the notch entirely until something new arrives.
 - **Liquid motion:** a drip animation and springs behind every movement, tunable in the config.
 - **Preferences window:** every setting in the GNOME Extensions app, saved to `~/.config/notchline/config.toml`.
 
@@ -72,6 +74,8 @@ gnome-extensions enable notchline@soefyan45.github.io
 ```bash
 notchline show "Title" "Body" --icon dialog-information --timeout 5000
 notchline dismiss <id>   # id is printed by `show`
+notchline hide           # hide the notch until something new arrives
+notchline hide off       # show it again
 notchline config         # print the effective config
 notchline reload         # re-read config.toml and apply it
 ```
@@ -80,6 +84,12 @@ System notifications (`notify-send`, apps) are shown in the notch too.
 Hover the pill to keep it open; click it to open the app that sent it.
 While idle the notch stays hidden; push the pointer to the top center edge
 to reveal it (set `reveal_on_hover = false` to keep it always visible).
+
+To get the notch out of the way, pick **Sembunyikan notch** in the top bar menu or run
+`notchline hide`. It stays hidden, even while idle or with music playing, until a new
+notification or status arrives (a charger, a meeting, an agent asking for permission),
+then shows again as usual. Hiding drops what is already shown or queued, and it resets
+on the next login.
 
 ## System statuses
 
@@ -122,6 +132,10 @@ within `permission_timeout_s`, the terminal asks as usual.
 Open the preferences window with `gnome-extensions prefs notchline@soefyan45.github.io`
 (or from the Extensions app). Changes are saved to `~/.config/notchline/config.toml`
 right away and applied to the notch; saving rewrites the file, so comments in it are lost.
+
+The `theme` key in `[pill]` picks the colors of the notch, the panel and the accent of the
+preferences window: `"default"` (black, teal accent) or `"te"` (graphite, orange accent).
+Picking a theme in the preferences also sets the notch color to match it.
 
 To edit the file by hand instead, copy [`config.example.toml`](config.example.toml) to
 `~/.config/notchline/config.toml`, edit it, then run `notchline reload`. The `[drop]`
