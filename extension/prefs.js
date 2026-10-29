@@ -397,11 +397,19 @@ export default class NotchlinePreferences extends ExtensionPreferences {
     _aboutPage() {
         const page = new Adw.PreferencesPage({title: 'Tentang', icon_name: 'help-about-symbolic'});
 
-        const app = this._group(page, 'Notchline');
-        app.add(new Adw.ActionRow({
-            title: 'Versi',
-            subtitle: `${this.metadata['version-name'] ?? this.metadata.version ?? '?'}`,
+        const app = this._group(page, '');
+        const brand = plainRow({
+            title: 'Notchline',
+            subtitle: `Versi ${this.metadata['version-name'] ?? this.metadata.version ?? '?'}`,
+        });
+        brand.add_css_class('title-3');
+        brand.add_prefix(new Gtk.Image({
+            file: GLib.build_filenamev([this.path, 'icons', 'notchline-symbol.svg']),
+            pixel_size: 48,
+            margin_top: 6,
+            margin_bottom: 6,
         }));
+        app.add(brand);
         app.add(plainRow({
             title: 'Daemon',
             subtitle: this._error ? `Tidak terhubung: ${this._error}` : `Terhubung · ${BUS_NAME}`,

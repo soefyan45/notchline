@@ -1135,7 +1135,12 @@ export default class NotchlineExtension extends Extension {
     _onPull() {
         // Pulling the idle notch shows the last notification again
         if (!this._current)
-            this._pill.setItem(this._lastContent ?? {text: 'No notifications'});
+            this._pill.setItem(this._lastContent ?? {text: 'No notifications', icon: this._logoIcon()});
+    }
+
+    _logoIcon() {
+        const path = GLib.build_filenamev([this.path, 'icons', 'notchline-symbolic.svg']);
+        return new Gio.FileIcon({file: Gio.File.new_for_path(path)});
     }
 
     _onPillClicked() {

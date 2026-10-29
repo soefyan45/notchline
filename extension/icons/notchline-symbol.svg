@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Notchline symbol: black bezel, teal screen, notch on the top edge (Pego "Logo · Simbol") -->
+  <rect width="64" height="64" rx="14" fill="#000000"/>
+  <rect x="6" y="6" width="52" height="52" rx="8" fill="#2DD4BF"/>
+  <path d="M17 0H47V9A9 9 0 0 1 38 18H26A9 9 0 0 1 17 9Z" fill="#000000"/>
+</svg>

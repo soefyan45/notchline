@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="extension/icons/notchline-symbol.svg" width="96" alt="Notchline logo">
+</p>
+
 # Notchline
 
 A notch-style notification layer for GNOME, written in Rust.
