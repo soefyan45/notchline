@@ -418,21 +418,123 @@ export default class NotchlinePreferences extends ExtensionPreferences {
     }
 
     _agentPage() {
-        return this._comingSoonPage('Agen AI', 'utilities-terminal-symbolic',
-            'Notchline membaca kejadian dari agen coding di terminal, lalu menampilkan progresnya di notch.', [
-                ['Sumber', [
-                    ['Claude Code', 'Hook · ~/.claude/settings.json', 'Belum dipasang'],
-                    ['OpenCode', 'Plugin · ~/.config/opencode/plugin/notchline.ts', 'Belum dipasang'],
-                    ['Perintah lain di terminal', 'notchline run -- <perintah>', 'Belum dipakai'],
-                ]],
-                ['Tampilkan di notch', [
-                    ['Progres tugas', 'Daftar todo agen sebagai langkah, misalnya 4/7', 'switch'],
-                    ['Permintaan izin', 'Notch melebar sampai kamu menjawab', 'switch'],
-                    ['Beri tahu saat agen selesai', 'Notch melebar 4 detik dengan total durasi', 'switch'],
-                    ['Izinkan dari notch', 'Tombol Izinkan hanya untuk perintah aman', 'switch'],
-                    ['Bunyi saat butuh izin', 'Bunyi pendek supaya tidak perlu terus melihat layar', 'switch'],
-                ]],
-            ]);
+        const page = new Adw.PreferencesPage({title: 'Agen AI', icon_name: 'utilities-terminal-symbolic'});
+
+        const sources = this._group(page, 'Sumber',
+            'Notchline membaca kejadian dari hook agen coding di terminal, lalu menampilkan progresnya di notch. Tidak ada data yang dikirim keluar dari komputer ini.');
+        const claude = plainRow({title: 'Claude Code', subtitle: 'Hook · ~/.claude/settings.json'});
+        const state = new Gtk.Label({valign: Gtk.Align.CENTER, css_classes: ['dim-label']});
+        const toggle = new Gtk.Button({valign: Gtk.Align.CENTER});
+        const refresh = () => {
+            const installed = this._claudeHooksInstalled();
+            state.label = installed ? 'Terhubung' : 'Belum dipasang';
+            toggle.label = installed ? 'Lepas' : 'Pasang';
+            toggle.css_classes = installed ? [] : ['suggested-action'];
+        };
+        toggle.connect('clicked', () => {
+            const command = this._claudeHooksInstalled() ? 'uninstall-hooks' : 'install-hooks';
+            toggle.sensitive = false;
+            this._runNotchline([command, 'claude'], error => {
+                toggle.sensitive = true;
+                refresh();
+                if (error)
+                    state.label = `Gagal: ${error}`;
+            });
+        });
+        refresh();
+        claude.add_suffix(state);
+        claude.add_suffix(toggle);
+        sources.add(claude);
+        const opencode = plainRow({title: 'OpenCode', subtitle: `Plugin · ~/.config/opencode/plugin/notchline.ts · ${COMING_SOON}`});
+        opencode.sensitive = false;
+        sources.add(opencode);
+
+        const display = this._group(page, 'Tampilkan di notch', 'Berlaku untuk semua sumber di atas.');
+        this._switchRow(display, ['agent', 'enabled'], 'Aktifkan agen');
+        this._switchRow(display, ['agent', 'show_progress'], 'Progres tugas',
+            'Ambil daftar todo agen dan tampilkan sebagai langkah, misalnya 4/7.');
+        this._switchRow(display, ['agent', 'permission_requests'], 'Permintaan izin',
+            'Notch terbuka di tab Agen sampai kamu menjawab di notch atau di terminal.');
+        this._switchRow(display, ['agent', 'notify_done'], 'Beri tahu saat agen selesai',
+            'Notch melebar 4 detik dengan total durasi kerja.');
+        this._switchRow(display, ['agent', 'allow_from_notch'], 'Izinkan dari notch',
+            'Tombol Izinkan sekali hanya muncul untuk perintah di daftar aman.');
+        this._spinRow(display, ['agent', 'permission_timeout_s'], 'Batas tunggu izin',
+            'Detik. Setelah itu terminal yang bertanya seperti biasa.', {lower: 10, upper: 600, step: 5});
+
+        const safe = this._group(page, 'Perintah aman',
+            'Hanya perintah ini (persis, atau diikuti argumen) yang bisa diizinkan dari notch. Perintah yang memuat ; & | ` $( > <, sudo, rm -rf, git push atau curl selalu ditanyakan di terminal.');
+        this._listRows(safe, ['agent', 'safe_commands'], 'Tambah perintah, misalnya npm test');
+        return page;
+    }
+
+    // Editable list of strings: an entry to add, and a row with a remove button per item
+    _listRows(group, path, addTitle) {
+        const rows = [];
+        const refresh = () => {
+            rows.forEach(row => group.remove(row));
+            rows.length = 0;
+            for (const item of this._get(path) ?? []) {
+                const row = plainRow({title: item});
+                row.add_css_class('monospace');
+                const remove = new Gtk.Button({
+                    icon_name: 'user-trash-symbolic',
+                    valign: Gtk.Align.CENTER,
+                    css_classes: ['flat'],
+                    tooltip_text: 'Hapus',
+                });
+                remove.connect('clicked', () => {
+                    this._set(path, (this._get(path) ?? []).filter(value => value !== item));
+                    refresh();
+                });
+                row.add_suffix(remove);
+                group.add(row);
+                rows.push(row);
+            }
+        };
+        const entry = new Adw.EntryRow({title: addTitle, show_apply_button: true});
+        entry.connect('apply', () => {
+            const value = entry.text.trim();
+            const list = this._get(path) ?? [];
+            if (value && !list.includes(value))
+                this._set(path, [...list, value]);
+            entry.text = '';
+            refresh();
+        });
+        group.add(entry);
+        refresh();
+        this._refreshers.push(refresh);
+    }
+
+    _claudeHooksInstalled() {
+        const dir = GLib.getenv('CLAUDE_CONFIG_DIR') ?? GLib.build_filenamev([GLib.get_home_dir(), '.claude']);
+        try {
+            const [, bytes] = GLib.file_get_contents(GLib.build_filenamev([dir, 'settings.json']));
+            return new TextDecoder().decode(bytes).includes('notchline hook');
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // Run the notchline CLI (cargo installs it outside the desktop's PATH), then call done
+    // with an error message or null
+    _runNotchline(args, done) {
+        const binary = GLib.find_program_in_path('notchline') ??
+            GLib.build_filenamev([GLib.get_home_dir(), '.cargo', 'bin', 'notchline']);
+        try {
+            const process = Gio.Subprocess.new([binary, ...args],
+                Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_MERGE);
+            process.communicate_utf8_async(null, null, (proc, result) => {
+                try {
+                    const [, output] = proc.communicate_utf8_finish(result);
+                    done(proc.get_successful() ? null : output.trim());
+                } catch (e) {
+                    done(e.message);
+                }
+            });
+        } catch (e) {
+            done(e.message);
+        }
     }
 
     _shortcutPage() {

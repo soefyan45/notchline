@@ -39,6 +39,23 @@ capture_system = true
 # Notchline icon in the top bar, with a menu to open the panel, pause and settings
 show_indicator = true
 
+[agent]
+# Coding agents (Claude Code) shown in the notch; set up with `notchline install-hooks claude`
+enabled = true
+# Show the agent's todo list as steps, e.g. 4/7
+show_progress = true
+# Open the notch on the agents tab when an agent asks for permission
+permission_requests = true
+# Flash the notch for 4 seconds when an agent finishes
+notify_done = true
+# Offer "allow once" in the notch, only for safe_commands below
+allow_from_notch = true
+# Seconds a permission request waits in the notch before the terminal asks instead
+permission_timeout_s = 60
+# Bash commands that may be allowed from the notch: exact, or followed by arguments.
+# Commands with ; & | ` $( > <, sudo, rm -rf, git push or curl always go to the terminal.
+safe_commands = ["npm test", "bun run lint", "git status", "git diff", "git log"]
+
 [drop]
 # Liquid drop that reaches for the pointer near the top center (logical pixels)
 enabled = true

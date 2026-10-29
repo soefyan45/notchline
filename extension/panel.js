@@ -71,7 +71,7 @@ export function setArt(actor, artUrl) {
 }
 
 export class NotchPanel {
-    constructor(media, {onSettings, onResize}) {
+    constructor(media, {onSettings, onResize, agents}) {
         this._media = media;
         // Called when the panel's layout changes shape, not for every text update
         this._onResize = onResize;
@@ -86,11 +86,10 @@ export class NotchPanel {
             home: this._buildHome(),
             shelf: this._emptyPage('folder-symbolic', 'Rak masih kosong',
                 'Seret file ke notch untuk menyimpannya di sini. Segera hadir.'),
-            agent: this._emptyPage('utilities-terminal-symbolic', 'Belum ada sesi agen',
-                'Progres Claude Code dan OpenCode akan tampil di sini. Segera hadir.'),
+            agent: agents,
         };
         Object.values(this._pages).forEach(page => this.actor.add_child(page));
-        this._showTab('home');
+        this.showTab('home');
 
         media.connectObject('changed', () => this._updateMusic(), this);
         this._events = new Calendar.DBusEventSource();
@@ -140,7 +139,7 @@ export class NotchPanel {
             content.add_child(icon(iconName, 'notchline-tab-icon'));
             content.add_child(label(text, 'notchline-tab-label', {y_align: Clutter.ActorAlign.CENTER}));
             const tab = new St.Button({style_class: 'notchline-tab', child: content, can_focus: true});
-            tab.connect('clicked', () => this._showTab(name));
+            tab.connect('clicked', () => this.showTab(name));
             tabs.add_child(tab);
             this._tabs[name] = tab;
         }
@@ -164,7 +163,7 @@ export class NotchPanel {
         return header;
     }
 
-    _showTab(name) {
+    showTab(name) {
         for (const [tabName, tab] of Object.entries(this._tabs)) {
             if (tabName === name)
                 tab.add_style_pseudo_class('checked');

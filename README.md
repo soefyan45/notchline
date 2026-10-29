@@ -63,6 +63,27 @@ Hover the pill to keep it open; click it to open the app that sent it.
 While idle the notch stays hidden; push the pointer to the top center edge
 to reveal it (set `reveal_on_hover = false` to keep it always visible).
 
+## Coding agents
+
+Notchline shows what Claude Code is doing: the current step and todo progress
+(`Claude Code 4/7`), permission requests, and a short notice when it finishes. Hover or
+pull the notch and open the **Agen** tab for the full session cards.
+
+```bash
+notchline install-hooks claude     # adds hooks to ~/.claude/settings.json (backs it up first)
+notchline uninstall-hooks claude   # removes only Notchline's hooks
+```
+
+The same can be done from Preferences → Agen AI. Each hook runs `notchline hook claude`,
+which forwards the event to the daemon and returns at once; it never blocks the agent if
+the daemon is unavailable.
+
+When Claude Code asks for permission, the notch opens on the agents tab. **Tolak** denies,
+**Di terminal** hands the question back to the terminal, and **Izinkan sekali** appears only
+for commands in `[agent] safe_commands` (anything with `;`, `&`, `|`, `` ` ``, `$(`, `>`,
+`<`, `sudo`, `rm -rf`, `git push` or `curl` always goes to the terminal). Without an answer
+within `permission_timeout_s`, the terminal asks as usual.
+
 ## Configuration
 
 Open the preferences window with `gnome-extensions prefs notchline@soefyan45.github.io`

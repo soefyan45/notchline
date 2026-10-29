@@ -359,6 +359,192 @@
   font-size: 12px;
 }
 
+/* Agents tab (Pego "Panel Agen") */
+.notchline-agents {
+  spacing: 16px;
+}
+
+.notchline-agent-cards {
+  spacing: 16px;
+}
+
+.notchline-agent-side-column {
+  spacing: 16px;
+}
+
+.notchline-agent-card {
+  spacing: 12px;
+}
+
+.notchline-agent-side {
+  width: 330px;
+}
+
+.notchline-agent-header {
+  spacing: 12px;
+}
+
+.notchline-agent-tile {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background-color: #1B1F28;
+}
+
+.notchline-agent-tile-icon {
+  icon-size: 18px;
+}
+
+.notchline-agent-name {
+  color: #ECEEF2;
+  font-family: Inter, sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.notchline-agent-sub {
+  color: #9AA1AF;
+  font-family: Inter, sans-serif;
+  font-size: 12px;
+}
+
+.notchline-agent-count {
+  spacing: 6px;
+}
+
+.notchline-agent-count-value {
+  color: #ECEEF2;
+  font-family: Manrope, Inter, sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.notchline-agent-count-unit {
+  color: #9AA1AF;
+  font-family: Inter, sans-serif;
+  font-size: 12px;
+  padding-bottom: 3px;
+}
+
+.notchline-badge {
+  spacing: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background-color: #1B1F28;
+}
+
+.notchline-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+}
+
+.notchline-badge-label {
+  color: #ECEEF2;
+  font-family: Inter, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.notchline-agent-headline {
+  color: #ECEEF2;
+  font-family: Inter, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.notchline-todos {
+  spacing: 8px;
+}
+
+.notchline-todo {
+  spacing: 10px;
+}
+
+.notchline-todo-icon {
+  icon-size: 16px;
+}
+
+.notchline-todo-label {
+  color: #9AA1AF;
+  font-family: Inter, sans-serif;
+  font-size: 14px;
+}
+
+.notchline-todo-in_progress {
+  color: #ECEEF2;
+  font-weight: 600;
+}
+
+.notchline-agent-footer {
+  spacing: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #2A2F3A;
+}
+
+.notchline-agent-step {
+  color: #9AA1AF;
+  font-size: 12px;
+}
+
+.notchline-link {
+  color: #2DD4BF;
+  font-family: Inter, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+
+.notchline-link:hover {
+  background-color: rgba(45, 212, 191, 0.12);
+}
+
+.notchline-agent-actions {
+  spacing: 8px;
+}
+
+.notchline-button {
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background-color: #1B1F28;
+  color: #ECEEF2;
+  font-family: Inter, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.notchline-button:hover {
+  background-color: #2A2F3A;
+}
+
+.notchline-button-accent {
+  background-color: #2DD4BF;
+  color: #06201C;
+}
+
+.notchline-button-accent:hover {
+  background-color: #5EEAD4;
+}
+
+.notchline-agents-footer {
+  spacing: 12px;
+}
+
+.notchline-agents-count {
+  color: #9AA1AF;
+  font-family: Inter, sans-serif;
+  font-size: 12px;
+}
+
+.notchline-agents-settings {
+  color: #ECEEF2;
+  font-family: Inter, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 /* Status colors; kept last so they win over the defaults above */
 .notchline-accent { color: #2DD4BF; }
 .notchline-success { color: #4ADE80; }
@@ -367,3 +553,5 @@
 .notchline-muted { color: #9AA1AF; }
 .notchline-bg-accent { background-color: #2DD4BF; }
 .notchline-bg-warn { background-color: #FBBF24; }
+.notchline-bg-success { background-color: #4ADE80; }
+.notchline-bg-muted { background-color: #9AA1AF; }

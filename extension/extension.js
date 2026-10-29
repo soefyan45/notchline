@@ -11,6 +11,7 @@ import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
+import {AgentsPage, agentName, formatDuration, sortSessions, todoProgress} from './agents.js';
 import {MediaWatcher} from './media.js';
 import {NotchPanel, setArt} from './panel.js';
 
@@ -39,7 +40,12 @@ const NotchlineIface = `
       <arg type="u" name="id" direction="in"/>
     </method>
     <method name="Reload"/>
+    <method name="AnswerPermission">
+      <arg type="u" name="id" direction="in"/>
+      <arg type="s" name="decision" direction="in"/>
+    </method>
     <property name="Config" type="s" access="read"/>
+    <property name="Agents" type="s" access="read"/>
     <signal name="ShowRequested">
       <arg type="u" name="id"/>
       <arg type="s" name="title"/>
@@ -86,6 +92,15 @@ const DEFAULT_CONFIG = {
         capture_system: true,
         show_indicator: true,
     },
+    agent: {
+        enabled: true,
+        show_progress: true,
+        permission_requests: true,
+        notify_done: true,
+        allow_from_notch: true,
+        permission_timeout_s: 60,
+        safe_commands: [],
+    },
     drop: {
         enabled: true,
         pull_range: 80,
@@ -109,6 +124,8 @@ const DEFAULT_CONFIG = {
 };
 
 const HOVER_RECHECK_MS = 500;
+// How long the notch says an agent finished
+const AGENT_DONE_MS = 4000;
 const CONTENT_FADE_MS = 120;
 // Height of the top edge strip that reveals the idle notch
 const HOT_ZONE_HEIGHT = 2;
@@ -166,6 +183,7 @@ function mergeConfig(json) {
     return {
         pill: {...DEFAULT_CONFIG.pill, ...parsed.pill},
         behavior: {...DEFAULT_CONFIG.behavior, ...parsed.behavior},
+        agent: {...DEFAULT_CONFIG.agent, ...parsed.agent},
         drop: {...DEFAULT_CONFIG.drop, ...parsed.drop},
         spring: {...DEFAULT_CONFIG.spring, ...parsed.spring},
     };
@@ -1089,14 +1107,23 @@ export default class NotchlineExtension extends Extension {
 
         this._paused = false;
         this._activityKey = null;
+        this._agents = [];
+        this._seenPermissions = new Set();
+        this._autoOpened = false;
 
+        const openSettings = () => {
+            this._pill.close();
+            this.openPreferences();
+        };
         this._media = new MediaWatcher();
+        this._agentsPage = new AgentsPage({
+            onAnswer: (id, decision) => this._proxy?.AnswerPermissionRemote(id, decision),
+            onSettings: openSettings,
+        });
         this._panel = new NotchPanel(this._media, {
-            onSettings: () => {
-                this._pill.close();
-                this.openPreferences();
-            },
+            onSettings: openSettings,
             onResize: () => this._pill?.refit(),
+            agents: this._agentsPage.actor,
         });
         this._pill = new Pill(this._config, {
             onClick: () => this._onPillClicked(),
@@ -1156,23 +1183,107 @@ export default class NotchlineExtension extends Extension {
         this._pill = null;
         this._panel.destroy();
         this._panel = null;
+        this._agentsPage = null;
         this._media.destroy();
         this._media = null;
     }
 
-    // Playing music stays in the notch as a compact line: cover art and a visualizer
+    // Something ongoing stays in the notch as a compact line: an agent that needs the user
+    // or is working, else playing music with cover art and a visualizer
     _updateActivity() {
-        const player = this._media.current;
-        const playing = player?.playing ? player : null;
-        const key = playing ? `${playing.busName}|${playing.artUrl}` : null;
+        const spec = this._agentActivity() ?? this._musicActivity();
+        const {icon: _icon, ...rest} = spec ?? {};
+        const key = spec ? JSON.stringify(rest) : null;
         if (key === this._activityKey)
             return;
         this._activityKey = key;
-        this._pill.setActivity(playing && {
+        this._pill.setActivity(spec);
+    }
+
+    _agentActivity() {
+        const session = sortSessions(this._agents).find(s => ['permission', 'working'].includes(s.status));
+        if (!session)
+            return null;
+        if (session.status === 'permission') {
+            return {
+                icon: new Gio.ThemedIcon({name: 'security-medium-symbolic'}),
+                iconColor: 'warn',
+                text: agentName(session),
+                trail: 'Izin?',
+                trailColor: 'warn',
+                trailMono: true,
+            };
+        }
+        const {done, total} = todoProgress(session);
+        return {
+            icon: new Gio.ThemedIcon({name: 'utilities-terminal-symbolic'}),
+            iconColor: 'accent',
+            text: agentName(session),
+            trail: total && this._config.agent.show_progress ? `${done}/${total}` : '',
+            trailColor: 'accent',
+            trailMono: true,
+        };
+    }
+
+    _musicActivity() {
+        const player = this._media.current;
+        if (!player?.playing)
+            return null;
+        return {
             icon: new Gio.ThemedIcon({name: 'audio-x-generic-symbolic'}),
-            art: playing.artUrl || null,
+            art: player.artUrl || null,
             visualizer: true,
-        });
+            artKey: player.busName,
+        };
+    }
+
+    _applyAgents(json) {
+        let sessions = [];
+        try {
+            sessions = JSON.parse(json || '[]');
+        } catch (e) {
+            console.warn(`Notchline: invalid agents from daemon: ${e}`);
+        }
+        const previous = new Map(this._agents.map(session => [session.id, session.status]));
+        this._agents = sessions;
+        const agent = this._config.agent;
+
+        // Finished: say so briefly, with how long it took
+        for (const session of sessions) {
+            if (session.status !== 'done' || previous.get(session.id) === 'done' || !agent.notify_done)
+                continue;
+            this._enqueue({
+                spec: {
+                    icon: new Gio.ThemedIcon({name: 'object-select-symbolic'}),
+                    iconColor: 'success',
+                    text: `${agentName(session)} selesai`,
+                    trail: formatDuration((session.finished_ms ?? Date.now()) - session.started_ms),
+                    trailColor: 'success',
+                    trailMono: true,
+                    title: `${agentName(session)} selesai · ${session.project}`,
+                    body: session.summary,
+                },
+                timeout: AGENT_DONE_MS,
+            });
+        }
+
+        // A new permission request opens the panel on the agents tab until it is answered
+        const pending = sessions.map(session => session.permission?.id).filter(Boolean);
+        const fresh = pending.filter(id => !this._seenPermissions.has(id));
+        this._seenPermissions = new Set(pending);
+        if (fresh.length && agent.permission_requests) {
+            this._panel.showTab('agent');
+            this._pill.openPanel();
+            this._autoOpened = true;
+        } else if (!pending.length && this._autoOpened) {
+            this._autoOpened = false;
+            this._panel.showTab('home');
+            this._pill.close();
+        }
+
+        this._agentsPage.setAgents(sessions, agent);
+        this._pill.refit();
+        this._updateActivity();
     }
 
     _syncIndicator() {
@@ -1237,8 +1348,15 @@ export default class NotchlineExtension extends Extension {
                 this._removeItem(item => item.id === id);
             }),
         ];
-        proxy.connectObject('g-properties-changed', () => this._applyConfig(proxy.Config), this);
+        proxy.connectObject('g-properties-changed', (_proxy, changed) => {
+            const keys = changed.deepUnpack();
+            if ('Config' in keys)
+                this._applyConfig(proxy.Config);
+            if ('Agents' in keys)
+                this._applyAgents(proxy.Agents);
+        }, this);
         this._applyConfig(proxy.Config);
+        this._applyAgents(proxy.Agents);
     }
 
     _applyConfig(json) {
