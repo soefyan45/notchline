@@ -39,6 +39,15 @@ capture_system = true
 # Notchline icon in the top bar, with a menu to open the panel, pause and settings
 show_indicator = true
 
+[system]
+# Show the battery level for 3 seconds when a charger is plugged in
+charging_notice = true
+# Remind of calendar events shortly before they start
+meeting_reminder = true
+meeting_minutes = 1
+# Default length of a focus timer (top bar menu, or `notchline focus`)
+focus_minutes = 25
+
 [agent]
 # Coding agents (Claude Code) shown in the notch; set up with `notchline install-hooks claude`
 enabled = true

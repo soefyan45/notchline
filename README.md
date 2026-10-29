@@ -63,6 +63,17 @@ Hover the pill to keep it open; click it to open the app that sent it.
 While idle the notch stays hidden; push the pointer to the top center edge
 to reveal it (set `reveal_on_hover = false` to keep it always visible).
 
+## System statuses
+
+Without anything to ask, the notch also shows on its own:
+
+- **Charging:** the battery level for 3 seconds when a charger is plugged in (UPower).
+- **Meeting soon:** a calendar event from GNOME Calendar, `meeting_minutes` before it starts.
+- **Focus timer:** the time left, from the top bar menu or `notchline focus [minutes|stop]`.
+
+When several things run at once, the compact notch shows a permission request first, then
+the focus timer, a working agent, and playing music; notifications interrupt briefly.
+
 ## Coding agents
 
 Notchline shows what Claude Code and OpenCode are doing: the current step and todo progress

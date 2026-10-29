@@ -56,6 +56,11 @@ enum Command {
         #[arg(long, default_value_t = 0)]
         timeout: u32,
     },
+    /// Start a focus timer in the notch, or stop it
+    Focus {
+        /// Minutes (default from config), or "stop"
+        minutes: Option<String>,
+    },
     /// Dismiss a notification or status by id
     Dismiss { id: u32 },
     /// Forward a coding agent hook event read from stdin (used by the agent's hooks)
@@ -87,6 +92,26 @@ struct Config {
     drop: DropConfig,
     spring: SpringConfig,
     agent: AgentConfig,
+    system: SystemConfig,
+}
+
+/// System statuses in the compact notch
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(default)]
+struct SystemConfig {
+    /// Show the battery level for a few seconds when a charger is plugged in
+    charging_notice: bool,
+    /// Remind of calendar events shortly before they start
+    meeting_reminder: bool,
+    meeting_minutes: u32,
+    /// Default length of a focus timer
+    focus_minutes: u32,
+}
+
+impl Default for SystemConfig {
+    fn default() -> Self {
+        Self { charging_notice: true, meeting_reminder: true, meeting_minutes: 1, focus_minutes: 25 }
+    }
 }
 
 /// Coding agents (Claude Code hooks) shown in the notch
@@ -523,6 +548,12 @@ impl Notchline {
         Ok(id)
     }
 
+    /// Start a focus timer of `minutes`; 0 stops it
+    async fn focus(&self, minutes: u32, #[zbus(signal_emitter)] emitter: SignalEmitter<'_>) -> fdo::Result<()> {
+        Self::focus_requested(&emitter, minutes).await?;
+        Ok(())
+    }
+
     async fn dismiss(&self, id: u32, #[zbus(signal_emitter)] emitter: SignalEmitter<'_>) -> fdo::Result<()> {
         Self::dismiss_requested(&emitter, id).await?;
         Ok(())
@@ -577,6 +608,9 @@ impl Notchline {
 
     #[zbus(signal)]
     async fn dismiss_requested(emitter: &SignalEmitter<'_>, id: u32) -> zbus::Result<()>;
+
+    #[zbus(signal)]
+    async fn focus_requested(emitter: &SignalEmitter<'_>, minutes: u32) -> zbus::Result<()>;
 
     /// One hook event from a coding agent, as JSON. Returns a permission id when the
     /// notch can answer it (the hook then waits for PermissionAnswered), else 0.
@@ -918,6 +952,14 @@ async fn main() {
                 let reply = call("ShowStatus", &(icon, text, trail, color, timeout)).await?;
                 let id: u32 = reply.body().deserialize()?;
                 println!("{id}");
+            }
+            Command::Focus { minutes } => {
+                let minutes = match minutes.as_deref() {
+                    Some("stop") => 0,
+                    Some(value) => value.parse().map_err(|_| format!("expected minutes or \"stop\", got {value:?}"))?,
+                    None => load_config().system.focus_minutes,
+                };
+                call("Focus", &(minutes,)).await?;
             }
             Command::Dismiss { id } => {
                 call("Dismiss", &(id,)).await?;

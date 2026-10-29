@@ -4,7 +4,7 @@ import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
 import St from 'gi://St';
 
-import * as Calendar from 'resource:///org/gnome/shell/ui/calendar.js';
+import {isAllDay} from './system.js';
 
 // Full panel of the notch (Pego "Notch terbuka"): tabs, battery and settings on top,
 // then the Home widgets. The shelf and agent tabs come in later phases.
@@ -13,19 +13,6 @@ const CALENDAR_EVENTS = 2;
 // Soon enough to count down "n mnt lagi" instead of showing the time range
 const SOON_MINUTES = 60;
 const TICK_SECONDS = 1;
-
-const UPowerDeviceIface = `
-<node>
-  <interface name="org.freedesktop.UPower.Device">
-    <property name="Percentage" type="d" access="read"/>
-    <property name="IsPresent" type="b" access="read"/>
-    <property name="IconName" type="s" access="read"/>
-    <property name="State" type="u" access="read"/>
-  </interface>
-</node>`;
-const UPowerDeviceProxy = Gio.DBusProxy.makeProxyWrapper(UPowerDeviceIface);
-const UPOWER_CHARGING = 1;
-const UPOWER_FULLY_CHARGED = 4;
 
 const pad = value => String(value).padStart(2, '0');
 
@@ -71,8 +58,10 @@ export function setArt(actor, artUrl) {
 }
 
 export class NotchPanel {
-    constructor(media, {onSettings, onResize, agents}) {
+    constructor(media, {battery, calendar, onSettings, onResize, agents}) {
         this._media = media;
+        this._battery = battery;
+        this._calendar = calendar;
         // Called when the panel's layout changes shape, not for every text update
         this._onResize = onResize;
         this._shape = null;
@@ -92,17 +81,12 @@ export class NotchPanel {
         this.showTab('home');
 
         media.connectObject('changed', () => this._updateMusic(), this);
-        this._events = new Calendar.DBusEventSource();
-        this._events.connectObject('changed', () => this._updateCalendar(), this);
-        this._battery = new UPowerDeviceProxy(Gio.DBus.system, 'org.freedesktop.UPower',
-            '/org/freedesktop/UPower/devices/DisplayDevice', (proxy, error) => {
-                if (!error)
-                    proxy.connectObject('g-properties-changed', () => this._updateBattery(), this);
-                this._updateBattery();
-            });
+        calendar.connectObject('changed', () => this._updateCalendar(), this);
+        battery.connectObject('changed', () => this._updateBattery(), this);
 
         this._updateMusic();
         this._updateCalendar();
+        this._updateBattery();
     }
 
     // Keep the clock-driven parts moving only while the panel is on screen
@@ -111,7 +95,6 @@ export class NotchPanel {
             return;
         this._active = active;
         if (active) {
-            this._requestEvents();
             this._media.current?.refreshPosition();
             this._tickId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, TICK_SECONDS, () => {
                 this._updateProgress();
@@ -309,22 +292,12 @@ export class NotchPanel {
         this._remaining.text = length > 0 ? `-${formatTrackTime(length - position)}` : '';
     }
 
-    _requestEvents() {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today.getTime() + 24 * 3600 * 1000);
-        this._events.requestRange(today, tomorrow);
-    }
-
     _updateCalendar() {
         const now = new Date();
         this._day.text = String(now.getDate());
         this._weekday.text = new Intl.DateTimeFormat(undefined, {weekday: 'long', month: 'short'}).format(now);
 
-        const today = new Date(now);
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today.getTime() + 24 * 3600 * 1000);
-        const events = this._events.getEvents(today, tomorrow)
+        const events = this._calendar.today()
             .filter(event => event.end > now)
             .slice(0, CALENDAR_EVENTS);
 
@@ -333,7 +306,7 @@ export class NotchPanel {
             row.visible = !!event;
             if (!event)
                 return;
-            const allDay = event.end - event.date >= 24 * 3600 * 1000;
+            const allDay = isAllDay(event);
             const minutes = Math.round((event.date - now) / 60000);
             const soon = i === 0 && minutes >= 0 && minutes <= SOON_MINUTES;
             summary.text = event.summary;
@@ -362,15 +335,13 @@ export class NotchPanel {
     }
 
     _updateBattery() {
-        const device = this._battery;
-        const present = !!device?.IsPresent;
-        this._batteryBox.visible = present;
-        if (!present)
+        const battery = this._battery;
+        this._batteryBox.visible = battery.present;
+        if (!battery.present)
             return;
-        this._batteryLabel.text = `${Math.round(device.Percentage)}%`;
-        this._batteryIcon.icon_name = device.IconName || 'battery-symbolic';
-        const charging = [UPOWER_CHARGING, UPOWER_FULLY_CHARGED].includes(device.State);
-        if (charging)
+        this._batteryLabel.text = `${battery.percentage}%`;
+        this._batteryIcon.icon_name = battery.iconName;
+        if (battery.charging)
             this._batteryIcon.add_style_class_name('notchline-success');
         else
             this._batteryIcon.remove_style_class_name('notchline-success');
@@ -379,9 +350,8 @@ export class NotchPanel {
     destroy() {
         this.setActive(false);
         this._media.disconnectObject(this);
-        this._events.disconnectObject(this);
-        this._events.destroy();
-        this._battery?.disconnectObject(this);
+        this._calendar.disconnectObject(this);
+        this._battery.disconnectObject(this);
         this.actor.destroy();
     }
 }

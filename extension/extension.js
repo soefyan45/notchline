@@ -13,6 +13,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import {AgentsPage, agentName, formatDuration, sortSessions, todoProgress} from './agents.js';
 import {MediaWatcher} from './media.js';
+import {BatteryWatcher, CalendarWatcher, isAllDay} from './system.js';
 import {NotchPanel, setArt} from './panel.js';
 
 const BUS_NAME = 'io.github.soefyan45.Notchline';
@@ -61,6 +62,9 @@ const NotchlineIface = `
       <arg type="s" name="color"/>
       <arg type="u" name="timeout_ms"/>
     </signal>
+    <signal name="FocusRequested">
+      <arg type="u" name="minutes"/>
+    </signal>
     <signal name="DismissRequested">
       <arg type="u" name="id"/>
     </signal>
@@ -91,6 +95,12 @@ const DEFAULT_CONFIG = {
         hide_gnome_banners: true,
         capture_system: true,
         show_indicator: true,
+    },
+    system: {
+        charging_notice: true,
+        meeting_reminder: true,
+        meeting_minutes: 1,
+        focus_minutes: 25,
     },
     agent: {
         enabled: true,
@@ -126,6 +136,12 @@ const DEFAULT_CONFIG = {
 const HOVER_RECHECK_MS = 500;
 // How long the notch says an agent finished
 const AGENT_DONE_MS = 4000;
+// How long the battery level shows after plugging in a charger (Pego: three seconds)
+const CHARGING_NOTICE_MS = 3000;
+// Meeting reminders: how often upcoming events are checked, and how long one shows
+const MEETING_CHECK_S = 15;
+const MEETING_NOTICE_MS = 10000;
+const FOCUS_DONE_MS = 6000;
 const CONTENT_FADE_MS = 120;
 // Height of the top edge strip that reveals the idle notch
 const HOT_ZONE_HEIGHT = 2;
@@ -183,6 +199,7 @@ function mergeConfig(json) {
     return {
         pill: {...DEFAULT_CONFIG.pill, ...parsed.pill},
         behavior: {...DEFAULT_CONFIG.behavior, ...parsed.behavior},
+        system: {...DEFAULT_CONFIG.system, ...parsed.system},
         agent: {...DEFAULT_CONFIG.agent, ...parsed.agent},
         drop: {...DEFAULT_CONFIG.drop, ...parsed.drop},
         spring: {...DEFAULT_CONFIG.spring, ...parsed.spring},
@@ -1116,11 +1133,18 @@ export default class NotchlineExtension extends Extension {
             this.openPreferences();
         };
         this._media = new MediaWatcher();
+        this._battery = new BatteryWatcher();
+        this._calendar = new CalendarWatcher();
+        this._focusEnd = 0;
+        this._focusId = 0;
+        this._reminded = new Set();
         this._agentsPage = new AgentsPage({
             onAnswer: (id, decision) => this._proxy?.AnswerPermissionRemote(id, decision),
             onSettings: openSettings,
         });
         this._panel = new NotchPanel(this._media, {
+            battery: this._battery,
+            calendar: this._calendar,
             onSettings: openSettings,
             onResize: () => this._pill?.refit(),
             agents: this._agentsPage.actor,
@@ -1130,6 +1154,11 @@ export default class NotchlineExtension extends Extension {
             panel: this._panel,
         });
         this._media.connectObject('changed', () => this._updateActivity(), this);
+        this._battery.connectObject('plugged', () => this._onPlugged(), this);
+        this._meetingId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, MEETING_CHECK_S, () => {
+            this._checkMeetings();
+            return GLib.SOURCE_CONTINUE;
+        });
         this._updateActivity();
         this._syncIndicator();
 
@@ -1179,6 +1208,9 @@ export default class NotchlineExtension extends Extension {
         this._indicator?.destroy();
         this._indicator = null;
         this._media.disconnectObject(this);
+        this._battery.disconnectObject(this);
+        GLib.source_remove(this._meetingId);
+        this._stopFocus(false);
         this._pill.destroy();
         this._pill = null;
         this._panel.destroy();
@@ -1186,12 +1218,118 @@ export default class NotchlineExtension extends Extension {
         this._agentsPage = null;
         this._media.destroy();
         this._media = null;
+        this._battery.destroy();
+        this._battery = null;
+        this._calendar.destroy();
+        this._calendar = null;
+    }
+
+    _onPlugged() {
+        if (!this._config.system.charging_notice)
+            return;
+        this._enqueue({
+            spec: {
+                icon: new Gio.ThemedIcon({name: this._battery.iconName}),
+                iconColor: 'success',
+                trail: `${this._battery.percentage}%`,
+                trailColor: 'success',
+                trailMono: true,
+                title: 'Mengisi daya',
+            },
+            timeout: CHARGING_NOTICE_MS,
+        });
+    }
+
+    // Shortly before a calendar event starts, say so once, quietly
+    _checkMeetings() {
+        const {meeting_reminder: enabled, meeting_minutes: minutes} = this._config.system;
+        if (!enabled)
+            return;
+        const now = Date.now();
+        for (const event of this._calendar.today()) {
+            const left = event.date.getTime() - now;
+            const key = `${event.id}@${event.date.getTime()}`;
+            if (isAllDay(event) || left <= 0 || left > minutes * 60000 || this._reminded.has(key))
+                continue;
+            this._reminded.add(key);
+            this._enqueue({
+                spec: {
+                    icon: new Gio.ThemedIcon({name: 'camera-video-symbolic'}),
+                    iconColor: 'success',
+                    text: event.summary,
+                    trail: `${Math.max(Math.round(left / 60000), 1)} mnt`,
+                    trailColor: 'success',
+                    trailMono: true,
+                    title: event.summary,
+                    body: `Mulai ${event.date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`,
+                },
+                timeout: MEETING_NOTICE_MS,
+            });
+        }
+    }
+
+    // Focus timer: the time left stays in the notch, then it says the session is over
+    _startFocus(minutes) {
+        this._stopFocus(false);
+        if (minutes <= 0) {
+            this._updateActivity();
+            return;
+        }
+        this._focusMinutes = minutes;
+        this._focusEnd = Date.now() + minutes * 60000;
+        this._focusId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 1, () => {
+            if (Date.now() >= this._focusEnd) {
+                this._stopFocus(true);
+                return GLib.SOURCE_REMOVE;
+            }
+            this._updateActivity();
+            return GLib.SOURCE_CONTINUE;
+        });
+        this._updateActivity();
+    }
+
+    _stopFocus(finished) {
+        if (this._focusId) {
+            GLib.source_remove(this._focusId);
+            this._focusId = 0;
+        }
+        this._focusEnd = 0;
+        if (!finished || !this._pill)
+            return;
+        this._enqueue({
+            spec: {
+                icon: new Gio.ThemedIcon({name: 'alarm-symbolic'}),
+                iconColor: 'success',
+                text: 'Fokus selesai',
+                trail: `${this._focusMinutes} mnt`,
+                trailColor: 'success',
+                trailMono: true,
+            },
+            timeout: FOCUS_DONE_MS,
+        });
+        this._updateActivity();
+    }
+
+    _focusActivity() {
+        if (!this._focusEnd)
+            return null;
+        const seconds = Math.max(Math.ceil((this._focusEnd - Date.now()) / 1000), 0);
+        return {
+            icon: new Gio.ThemedIcon({name: 'alarm-symbolic'}),
+            iconColor: 'warn',
+            text: 'Fokus',
+            trail: `${Math.floor(seconds / 60)}.${String(seconds % 60).padStart(2, '0')}`,
+            trailColor: 'warn',
+            trailMono: true,
+        };
     }
 
     // Something ongoing stays in the notch as a compact line: an agent that needs the user
     // or is working, else playing music with cover art and a visualizer
     _updateActivity() {
-        const spec = this._agentActivity() ?? this._musicActivity();
+        // Permission first, then the focus timer, a working agent, and music
+        const spec = this._agentActivity('permission') ?? this._focusActivity() ??
+            this._agentActivity('working') ?? this._musicActivity();
         const {icon: _icon, ...rest} = spec ?? {};
         const key = spec ? JSON.stringify(rest) : null;
         if (key === this._activityKey)
@@ -1200,8 +1338,8 @@ export default class NotchlineExtension extends Extension {
         this._pill.setActivity(spec);
     }
 
-    _agentActivity() {
-        const session = sortSessions(this._agents).find(s => ['permission', 'working'].includes(s.status));
+    _agentActivity(status) {
+        const session = sortSessions(this._agents).find(s => s.status === status);
         if (!session)
             return null;
         if (session.status === 'permission') {
@@ -1301,6 +1439,16 @@ export default class NotchlineExtension extends Extension {
         this._indicator.add_child(new St.Icon({gicon: this._logoIcon(), style_class: 'system-status-icon'}));
         const menu = this._indicator.menu;
         menu.addAction('Buka panel', () => this._pill.openPanel());
+        const focus = menu.addAction('', () => {
+            if (this._focusEnd)
+                this._startFocus(0);
+            else
+                this._startFocus(this._config.system.focus_minutes);
+        });
+        menu.connect('open-state-changed', (_menu, open) => {
+            if (open)
+                focus.label.text = this._focusEnd ? 'Hentikan fokus' : `Fokus ${this._config.system.focus_minutes} menit`;
+        });
         const pause = new PopupMenu.PopupSwitchMenuItem('Jeda notifikasi notch', this._paused);
         pause.connect('toggled', (_item, state) => {
             this._paused = state;
@@ -1347,6 +1495,7 @@ export default class NotchlineExtension extends Extension {
             proxy.connectSignal('DismissRequested', (_p, _sender, [id]) => {
                 this._removeItem(item => item.id === id);
             }),
+            proxy.connectSignal('FocusRequested', (_p, _sender, [minutes]) => this._startFocus(minutes)),
         ];
         proxy.connectObject('g-properties-changed', (_proxy, changed) => {
             const keys = changed.deepUnpack();

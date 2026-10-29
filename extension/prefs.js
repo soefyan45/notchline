@@ -320,6 +320,16 @@ export default class NotchlinePreferences extends ExtensionPreferences {
         this._spinRow(behavior, ['behavior', 'timeout_ms'], 'Lama tampil', 'Milidetik per notifikasi.',
             {lower: 1000, upper: 30000, step: 500});
 
+        const system = this._group(page, 'Status sistem', 'Keadaan ringkas yang muncul sendiri di notch.');
+        this._switchRow(system, ['system', 'charging_notice'], 'Mengisi daya',
+            'Tampilkan level baterai 3 detik saat charger dicolok.');
+        this._switchRow(system, ['system', 'meeting_reminder'], 'Rapat segera dimulai',
+            'Ingatkan sebelum acara di Kalender GNOME dimulai.');
+        this._spinRow(system, ['system', 'meeting_minutes'], 'Ingatkan sebelum rapat', 'Menit.',
+            {lower: 1, upper: 30});
+        this._spinRow(system, ['system', 'focus_minutes'], 'Lama timer fokus',
+            'Menit. Mulai dari menu ikon Notchline di top bar, atau notchline focus.', {lower: 1, upper: 180});
+
         const drop = this._group(page, 'Tetes',
             'Tetes cair yang menjulur ke arah kursor di dekat tepi atas tengah. Semua ukuran dalam piksel.');
         this._switchRow(drop, ['drop', 'enabled'], 'Aktifkan tetes');
