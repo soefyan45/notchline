@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  daemon:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: daemon
+      - name: Build
+        run: cargo build --locked --release
+        working-directory: daemon
+      - name: Smoke test
+        run: |
+          ./daemon/target/release/notchline --help
+          ./daemon/target/release/notchline config
+
+  extension:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check syntax
+        run: for file in extension/*.js; do node --check "$file"; done
+      - name: Pack
+        run: |
+          mkdir -p dist
+          cd extension && zip -r ../dist/notchline@soefyan45.github.io.shell-extension.zip \
+            metadata.json *.js stylesheet.css icons
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shell-extension
+          path: dist/*.zip
