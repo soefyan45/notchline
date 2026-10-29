@@ -9,28 +9,28 @@ import {isAllDay} from './system.js';
 // Full panel of the notch (Pego "Notch terbuka"): tabs, battery and settings on top,
 // then the Home widgets. The shelf and agent tabs come in later phases.
 
-const CALENDAR_EVENTS = 2;
+export const CALENDAR_EVENTS = 2;
 // Soon enough to count down "n mnt lagi" instead of showing the time range
-const SOON_MINUTES = 60;
-const TICK_SECONDS = 1;
+export const SOON_MINUTES = 60;
+export const TICK_SECONDS = 1;
 
-const pad = value => String(value).padStart(2, '0');
+export const pad = value => String(value).padStart(2, '0');
 
 // m.ss, the way the design writes track times
-function formatTrackTime(microseconds) {
+export function formatTrackTime(microseconds) {
     const seconds = Math.max(Math.round(microseconds / 1e6), 0);
     return `${Math.floor(seconds / 60)}.${pad(seconds % 60)}`;
 }
 
-const formatClock = date => `${pad(date.getHours())}.${pad(date.getMinutes())}`;
+export const formatClock = date => `${pad(date.getHours())}.${pad(date.getMinutes())}`;
 
-function label(text, styleClass, props = {}) {
+export function label(text, styleClass, props = {}) {
     const actor = new St.Label({text, style_class: styleClass, ...props});
     actor.clutter_text.ellipsize = Pango.EllipsizeMode.END;
     return actor;
 }
 
-function icon(iconName, styleClass) {
+export function icon(iconName, styleClass) {
     return new St.Icon({icon_name: iconName, style_class: styleClass, y_align: Clutter.ActorAlign.CENTER});
 }
 
@@ -55,6 +55,22 @@ export function setArt(actor, artUrl) {
         actor.style = null;
         actor.add_style_class_name('notchline-art-empty');
     }
+}
+
+// Next event starting within the hour, counted down instead of showing its time range
+export function startsSoon(event, now) {
+    const minutes = Math.round((event.date - now) / 60000);
+    return !isAllDay(event) && minutes >= 0 && minutes <= SOON_MINUTES;
+}
+
+export function eventTime(event, now, soon) {
+    if (isAllDay(event))
+        return 'Sepanjang hari';
+    if (event.date <= now)
+        return `${formatClock(event.date)}-${formatClock(event.end)} · berlangsung`;
+    if (soon)
+        return `${formatClock(event.date)} · ${Math.round((event.date - now) / 60000)} mnt lagi`;
+    return `${formatClock(event.date)}-${formatClock(event.end)}`;
 }
 
 export class NotchPanel {
@@ -154,6 +170,8 @@ export class NotchPanel {
                 tab.remove_style_pseudo_class('checked');
             this._pages[tabName].visible = tabName === name;
         }
+        // Pages differ in height, so the notch has to fit the new one
+        this._onResize();
     }
 
     _buildHome() {
@@ -306,18 +324,9 @@ export class NotchPanel {
             row.visible = !!event;
             if (!event)
                 return;
-            const allDay = isAllDay(event);
-            const minutes = Math.round((event.date - now) / 60000);
-            const soon = i === 0 && minutes >= 0 && minutes <= SOON_MINUTES;
+            const soon = i === 0 && startsSoon(event, now);
             summary.text = event.summary;
-            if (allDay)
-                time.text = 'Sepanjang hari';
-            else if (event.date <= now)
-                time.text = `${formatClock(event.date)}-${formatClock(event.end)} · berlangsung`;
-            else if (soon)
-                time.text = `${formatClock(event.date)} · ${minutes} mnt lagi`;
-            else
-                time.text = `${formatClock(event.date)}-${formatClock(event.end)}`;
+            time.text = eventTime(event, now, soon);
             // First event in accent, the next in warn, like the design
             marker.style_class = `notchline-event-marker ${i === 0 ? 'notchline-bg-accent' : 'notchline-bg-warn'}`;
             time.style_class = `notchline-event-time notchline-mono${soon ? ' notchline-accent' : ''}`;

@@ -15,6 +15,7 @@ import {AgentsPage, agentName, formatDuration, sortSessions, todoProgress} from 
 import {MediaWatcher} from './media.js';
 import {BatteryWatcher, CalendarWatcher, isAllDay} from './system.js';
 import {NotchPanel, setArt} from './panel.js';
+import {TeAgentsPage, TePanel} from './panel-te.js';
 
 const BUS_NAME = 'io.github.soefyan45.Notchline';
 const OBJECT_PATH = '/io/github/soefyan45/Notchline';
@@ -185,7 +186,7 @@ const COMPACT_PADDING = 14;
 const DETAIL_PADDING = [14, 18];
 const COMPACT_MAX_WIDTH = 480;
 // Full panel: padding [top, right, bottom, left], corner radius and room left on the
-// sides of a narrow screen (logical px)
+// sides of a narrow screen (logical px); a theme's panel may set its own padding and radius
 const PANEL_PADDING = [8, 24, 24, 24];
 const PANEL_RADIUS = 32;
 const PANEL_MARGIN = 16;
@@ -446,6 +447,21 @@ class Pill {
     // True while the user is looking at or touching the notch
     get held() {
         return this._overBody || this.open || !!this._drag;
+    }
+
+    // Swap in the full panel of another theme
+    setPanel(panel) {
+        this._panel.setActive(false);
+        this._content.replace_child(this._panel.actor, panel.actor);
+        this._panel = panel;
+        this._panelSize = null;
+        panel.actor.visible = this._layer === 'panel';
+        this._apply(false);
+        // The fresh panel measures wrong until laid out; size it again once it is
+        const id = panel.actor.connect('notify::allocation', () => {
+            panel.actor.disconnect(id);
+            this.refit();
+        });
     }
 
     setConfig(config) {
@@ -904,7 +920,7 @@ class Pill {
     }
 
     _radius() {
-        return (this._layer === 'panel' ? PANEL_RADIUS : this._config.pill.radius) * scaleFactor();
+        return (this._layer === 'panel' ? this._panel.radius ?? PANEL_RADIUS : this._config.pill.radius) * scaleFactor();
     }
 
     // Center of the notch, moved while it is slid sideways
@@ -943,7 +959,7 @@ class Pill {
             };
         }
         if (mode === 'panel') {
-            const [top, right, bottom, left] = PANEL_PADDING;
+            const [top, right, bottom, left] = this._panel.padding ?? PANEL_PADDING;
             const width = Math.min(p.panel_width * scale, monitor.width - 2 * PANEL_MARGIN * scale);
             // Measure only when laid out (a fresh, unallocated panel measures wrong and makes
             // Clutter warn); otherwise reuse the last good height, which refit() corrects
@@ -1071,7 +1087,7 @@ class Pill {
 
     _styleBody() {
         const [vertical, side] = this._layer === 'detail' ? DETAIL_PADDING : [0, COMPACT_PADDING];
-        const padding = this._layer === 'panel' ? PANEL_PADDING : [vertical, side, vertical, side];
+        const padding = this._layer === 'panel' ? this._panel.padding ?? PANEL_PADDING : [vertical, side, vertical, side];
         // CSS lengths are scaled by St, so this stays in logical pixels
         this._body.style = `padding: ${padding.map(value => `${value}px`).join(' ')};`;
     }
@@ -1172,17 +1188,8 @@ export default class NotchlineExtension extends Extension {
         this._focusEnd = 0;
         this._focusId = 0;
         this._reminded = new Set();
-        this._agentsPage = new AgentsPage({
-            onAnswer: (id, decision) => this._proxy?.AnswerPermissionRemote(id, decision),
-            onSettings: openSettings,
-        });
-        this._panel = new NotchPanel(this._media, {
-            battery: this._battery,
-            calendar: this._calendar,
-            onSettings: openSettings,
-            onResize: () => this._pill?.refit(),
-            agents: this._agentsPage.actor,
-        });
+        this._openSettings = openSettings;
+        this._panel = this._buildPanel();
         this._pill = new Pill(this._config, {
             onClick: () => this._onPillClicked(),
             panel: this._panel,
@@ -1552,10 +1559,37 @@ export default class NotchlineExtension extends Extension {
         this._applyAgents(proxy.Agents);
     }
 
+    // Full panel and agents page of the current theme
+    _buildPanel() {
+        const te = this._config.pill.theme === 'te';
+        const Agents = te ? TeAgentsPage : AgentsPage;
+        this._agentsPage = new Agents({
+            onAnswer: (id, decision) => this._proxy?.AnswerPermissionRemote(id, decision),
+            onSettings: this._openSettings,
+        });
+        this._agentsPage.setAgents(this._agents, this._config.agent);
+        const Panel = te ? TePanel : NotchPanel;
+        return new Panel(this._media, {
+            battery: this._battery,
+            calendar: this._calendar,
+            onSettings: this._openSettings,
+            onResize: () => this._pill?.refit(),
+            agents: this._agentsPage.actor,
+        });
+    }
+
     _applyConfig(json) {
         if (!json)
             return;
+        const theme = this._config.pill.theme;
         this._config = mergeConfig(json);
+        if (this._config.pill.theme !== theme) {
+            // The old panel takes its agents page along when destroyed
+            const old = this._panel;
+            this._panel = this._buildPanel();
+            this._pill.setPanel(this._panel);
+            old.destroy();
+        }
         this._pill.setConfig(this._config);
         this._syncIndicator();
     }
